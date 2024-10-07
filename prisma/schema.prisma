@@ -1,0 +1,148 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+
+
+
+model User {
+  id                 String   @id @default(uuid())
+  email              String   @unique
+  password           String
+  company_name       String
+  tax_id             String
+  industry           String
+  is_email_verified  Boolean  @default(false)
+  two_factor_enabled Boolean  @default(false)
+  created_at         DateTime @default(now())
+  updated_at         DateTime @updatedAt
+  kyc_documents      KYCDocument[]
+  invoices           Invoice[]
+  milestones         Milestone[]
+  funding_requests   FundingRequest[]
+  notifications      Notification[]
+}
+
+model Admin {
+  id                 String   @id @default(uuid())
+  email              String   @unique
+  password           String
+  name               String
+  role               AdminRole
+  permissions        Permission[]
+  is_active          Boolean  @default(true)
+  created_at         DateTime @default(now())
+  updated_at         DateTime @updatedAt
+
+  reviewed_kyc       KYCDocument[]
+  reviewed_invoices  Invoice[]
+  reviewed_funding_requests FundingRequest[]
+}
+
+model KYCDocument {
+  id                 String   @id @default(uuid())
+  user_id            String
+  admin_id           String?
+  document_type      String
+  document_url       String
+  status             ApprovalStatus
+  submission_date    DateTime @default(now())
+  review_date        DateTime?
+
+  user               User     @relation(fields: [user_id], references: [id])
+  reviewed_by        Admin?   @relation(fields: [admin_id], references: [id])
+}
+
+model Invoice {
+  id                 String   @id @default(uuid())
+  user_id            String
+  admin_id           String?
+  invoice_number     String
+  amount             Float
+  payment_terms      String
+  due_date           DateTime
+  status             ApprovalStatus
+  submission_date    DateTime @default(now())
+  review_date        DateTime?
+
+  user               User     @relation(fields: [user_id], references: [id])
+  reviewed_by        Admin?   @relation(fields: [admin_id], references: [id])
+  milestones         Milestone[]
+  funding_requests   FundingRequest[]
+}
+
+model Milestone {
+  id                 String   @id @default(uuid())
+  user_id            String
+  invoice_id         String
+  amount             Float
+  due_date           DateTime
+  status             ApprovalStatus
+  description        String?
+
+  user               User     @relation(fields: [user_id], references: [id])
+  invoice            Invoice  @relation(fields: [invoice_id], references: [id])
+}
+
+model FundingRequest {
+  id                 String   @id @default(uuid())
+  user_id            String
+  admin_id           String?
+  amount             Float
+  status             ApprovalStatus
+  submission_date    DateTime @default(now())
+  review_date        DateTime?
+
+  user               User     @relation(fields: [user_id], references: [id])
+  reviewed_by        Admin?   @relation(fields: [admin_id], references: [id])
+  invoices           Invoice[]
+}
+
+model Notification {
+  id                 String   @id @default(uuid())
+  user_id            String
+  message            String
+  type               NotificationType
+  is_read            Boolean  @default(false)
+  created_at         DateTime @default(now())
+
+  user               User     @relation(fields: [user_id], references: [id])
+}
+
+model Permission {
+  id                 String   @id @default(uuid())
+  name               String
+  description        String?
+
+  admins             Admin[]
+}
+
+enum AdminRole {
+  ADMIN
+  SUPER_ADMIN
+}
+
+enum ApprovalStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum NotificationType {
+  KYC_UPDATE
+  INVOICE_UPDATE
+  MILESTONE_UPDATE
+  FUNDING_UPDATE
+  SYSTEM_ALERT
+}
