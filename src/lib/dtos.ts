@@ -1,3 +1,4 @@
+import { ApprovalStatus } from '@prisma/client';
 import { z } from 'zod';
 
 export const userRegistrationSchema = z.object({
@@ -27,4 +28,23 @@ export const invoiceSchema = z.object({
   due_date: z.date().refine(date => date > new Date(), {
     message: 'Due date must be in the future',
   }),
+});
+
+export const kycUpdateSchema = z.object({
+  kyc_id: z.string(),
+  status: z.enum([ApprovalStatus.APPROVED, ApprovalStatus.REJECTED]),
+});
+
+export const invoiceUpdateSchema = z.object({
+  invoice_id: z.string(),
+  status: z.enum([ApprovalStatus.APPROVED, ApprovalStatus.REJECTED]),
+});
+
+export const fundingRequestUpdateSchema = z.object({
+  funding_request_id: z.string(),
+  status: z.enum([ApprovalStatus.APPROVED, ApprovalStatus.REJECTED]),
+});
+export const milestoneUpdateSchema = z.object({
+  id: z.string(),
+  status: z.enum([ApprovalStatus.APPROVED, ApprovalStatus.REJECTED]),
 });

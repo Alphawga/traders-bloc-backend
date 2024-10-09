@@ -1,18 +1,24 @@
-import { NextApiHandler, NextApiRequest, NextApiResponse } from 'next';
-import { getSession } from 'next-auth/react';
+import { NextRequest, NextResponse } from 'next/server';
+import { getServerSession } from 'next-auth';
 
-export function withApiAuth(handler: NextApiHandler, allowedRoles: string[] = ['ADMIN', 'SUPER_ADMIN']) {
-  return async (req: NextApiRequest, res: NextApiResponse) => {
-    const session = await getSession({ req });
+export function withAuth(
+  handler: (
+    req: NextRequest,
+  ) => Promise<NextResponse>,
+  allowedRoles: string[]
+) {
+  return async (req: NextRequest) => {
+    const session = await getServerSession();
 
-    if (!session) {
-      return res.status(401).json({ error: 'Unauthorized' });
+    if (!session || !session.user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     if (!allowedRoles.includes(session.user.role)) {
-      return res.status(403).json({ error: 'Forbidden' });
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
-    return handler(req, res);
+    
+    return handler(req);
   };
 }

@@ -19,7 +19,7 @@ export const authOptions: NextAuthOptions = {
           return null;
         }
 
-        // Check if the user exists in the User table
+     
         const user = await prisma.user.findUnique({
           where: {
             email: credentials.email
@@ -81,9 +81,6 @@ export const authOptions: NextAuthOptions = {
   },
   pages: {
     signIn: '/login',
-  },
-  session: {
-    strategy: 'jwt',
   },
   secret: process.env.NEXTAUTH_SECRET,
 };

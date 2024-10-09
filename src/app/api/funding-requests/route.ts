@@ -1,77 +1,65 @@
-import { z } from 'zod';
+import { NextRequest, NextResponse } from 'next/server'; 
 import prisma from '@/lib/prisma';
-import { NextRequest, NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
+import { fundingRequestUpdateSchema } from '@/lib/dtos';
+import { getServerSession } from 'next-auth'; 
 
-const kycDocumentSchema = z.object({
-  document_type: z.string(),
-  document_url: z.string().url(),
-});
-
-export async function POST(req: NextRequest) {
+export async function PATCH(req: NextRequest) {
   try {
-    const session = await getServerSession();
+    const body = await req.json(); 
+    const validationResult = fundingRequestUpdateSchema.safeParse(body);
+    if (!validationResult.success) {
+      return NextResponse.json({ error: validationResult.error.errors }, { status: 400 });
+    }
 
+    const session = await getServerSession(); 
     if (!session || !session.user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const body = await req.json();
-    const validationResult = kycDocumentSchema.safeParse(body);
+    const { status, funding_request_id: id } = validationResult.data;
 
-    if (!validationResult.success) {
-      return NextResponse.json(
-        { error: validationResult.error.errors },
-        { status: 400 }
-      );
-    }
-
-    const { document_type, document_url } = validationResult.data;
-    const userId = session.user.id;
-
-    const newDocument = await prisma.kYCDocument.create({
+    const fundingRequest = await prisma.fundingRequest.update({
+      where: { id: String(id) },
       data: {
-        user_id: userId,
-        document_type,
-        document_url,
-        status: 'PENDING',
+        status,
+        review_date: new Date(),
+        reviewed_by: session.user.id,
       },
     });
 
-    return NextResponse.json(newDocument, { status: 201 });
+    return NextResponse.json(fundingRequest, { status: 200 });
   } catch (error) {
-    console.error('KYC document submission error:', error);
+    console.error('Funding request update error:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   } finally {
-    await prisma.$disconnect();
+    await prisma.$disconnect(); 
   }
 }
 
 /**
  * @swagger
- * /api/kyc-document:
- *   post:
- *     summary: Submit a KYC document
+ * /api/funding-request:
+ *   patch:
+ *     summary: Update a funding request
  *     tags:
- *       - KYC Documents
+ *       - Funding Requests
  *     requestBody:
- *       description: KYC document data to be submitted
+ *       description: Funding request data to be updated
  *       required: true
  *       content:
  *         application/json:
  *           schema:
  *             type: object
  *             properties:
- *               document_type:
+ *               funding_request_id:
  *                 type: string
- *                 description: Type of the document being submitted (e.g., ID card, passport)
- *               document_url:
+ *                 description: Unique identifier for the funding request
+ *               status:
  *                 type: string
- *                 format: uri
- *                 description: URL pointing to the KYC document
+ *                 description: New status for the funding request
  *     responses:
- *       201:
- *         description: KYC document submitted successfully
+ *       200:
+ *         description: Funding request updated successfully
  *         content:
  *           application/json:
  *             schema:
@@ -79,18 +67,16 @@ export async function POST(req: NextRequest) {
  *               properties:
  *                 id:
  *                   type: string
- *                   description: Unique identifier for the created KYC document
- *                 user_id:
- *                   type: string
- *                   description: ID of the user who submitted the document
- *                 document_type:
- *                   type: string
- *                 document_url:
- *                   type: string
- *                   format: uri
+ *                   description: Unique identifier for the updated funding request
  *                 status:
  *                   type: string
- *                   description: Status of the document submission, defaults to 'PENDING'
+ *                 review_date:
+ *                   type: string
+ *                   format: date-time
+ *                   description: Date when the request was reviewed
+ *                 reviewed_by:
+ *                   type: string
+ *                   description: ID of the user who reviewed the request
  *       400:
  *         description: Invalid input data
  *         content:

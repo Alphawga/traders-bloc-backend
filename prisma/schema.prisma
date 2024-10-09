@@ -44,10 +44,10 @@ model Admin {
   is_active          Boolean  @default(true)
   created_at         DateTime @default(now())
   updated_at         DateTime @updatedAt
-
   reviewed_kyc       KYCDocument[]
   reviewed_invoices  Invoice[]
   reviewed_funding_requests FundingRequest[]
+  activity_logs       ActivityLog[]
 }
 
 model KYCDocument {
@@ -124,8 +124,15 @@ model Permission {
   id                 String   @id @default(uuid())
   name               String
   description        String?
-
   admins             Admin[]
+}
+
+model ActivityLog {
+  id        String   @id @default(uuid())
+  action    String
+  admin_id    String
+  admin      Admin     @relation(fields: [admin_id], references: [id])
+  createdAt DateTime @default(now())
 }
 
 enum AdminRole {

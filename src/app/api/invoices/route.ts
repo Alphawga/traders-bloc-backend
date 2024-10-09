@@ -1,24 +1,28 @@
-import { z } from 'zod';
 import prisma from '@/lib/prisma';
 import { NextRequest, NextResponse } from 'next/server';
+import { z } from 'zod';
 import { getServerSession } from 'next-auth';
 
-const kycDocumentSchema = z.object({
-  document_type: z.string(),
-  document_url: z.string().url(),
+const invoiceSchema = z.object({
+  invoice_number: z.string(),
+  amount: z.number().positive(),
+  payment_terms: z.string(),
+  due_date: z.string().transform((str) => new Date(str)),
 });
 
 export async function POST(req: NextRequest) {
   try {
+    // Get session
     const session = await getServerSession();
-
     if (!session || !session.user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
+    // Parse the request body
     const body = await req.json();
-    const validationResult = kycDocumentSchema.safeParse(body);
+    const validationResult = invoiceSchema.safeParse(body);
 
+    // Validate input data
     if (!validationResult.success) {
       return NextResponse.json(
         { error: validationResult.error.errors },
@@ -26,52 +30,61 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const { document_type, document_url } = validationResult.data;
+    const { invoice_number, amount, payment_terms, due_date } = validationResult.data;
     const userId = session.user.id;
 
-    const newDocument = await prisma.kYCDocument.create({
+    // Create new invoice
+    const newInvoice = await prisma.invoice.create({
       data: {
         user_id: userId,
-        document_type,
-        document_url,
+        invoice_number,
+        amount,
+        payment_terms,
+        due_date,
         status: 'PENDING',
       },
     });
 
-    return NextResponse.json(newDocument, { status: 201 });
+    return NextResponse.json(newInvoice, { status: 201 });
   } catch (error) {
-    console.error('KYC document submission error:', error);
+    console.error('Invoice creation error:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   } finally {
     await prisma.$disconnect();
   }
 }
-
 /**
  * @swagger
- * /api/kyc-document:
+ * /api/invoice:
  *   post:
- *     summary: Submit a KYC document
+ *     summary: Create a new invoice
  *     tags:
- *       - KYC Documents
+ *       - Invoices
  *     requestBody:
- *       description: KYC document data to be submitted
+ *       description: Invoice data to be created
  *       required: true
  *       content:
  *         application/json:
  *           schema:
  *             type: object
  *             properties:
- *               document_type:
+ *               invoice_number:
  *                 type: string
- *                 description: Type of the document being submitted (e.g., ID card, passport)
- *               document_url:
+ *                 description: Unique identifier for the invoice
+ *               amount:
+ *                 type: number
+ *                 format: float
+ *                 description: Amount for the invoice, must be positive
+ *               payment_terms:
  *                 type: string
- *                 format: uri
- *                 description: URL pointing to the KYC document
+ *                 description: Terms of payment for the invoice
+ *               due_date:
+ *                 type: string
+ *                 format: date
+ *                 description: Due date for the invoice in YYYY-MM-DD format
  *     responses:
  *       201:
- *         description: KYC document submitted successfully
+ *         description: Invoice created successfully
  *         content:
  *           application/json:
  *             schema:
@@ -79,18 +92,20 @@ export async function POST(req: NextRequest) {
  *               properties:
  *                 id:
  *                   type: string
- *                   description: Unique identifier for the created KYC document
- *                 user_id:
+ *                   description: Unique identifier for the created invoice
+ *                 invoice_number:
  *                   type: string
- *                   description: ID of the user who submitted the document
- *                 document_type:
+ *                 amount:
+ *                   type: number
+ *                   format: float
+ *                 payment_terms:
  *                   type: string
- *                 document_url:
+ *                 due_date:
  *                   type: string
- *                   format: uri
+ *                   format: date
  *                 status:
  *                   type: string
- *                   description: Status of the document submission, defaults to 'PENDING'
+ *                   description: Status of the invoice, defaults to 'PENDING'
  *       400:
  *         description: Invalid input data
  *         content:
@@ -104,9 +119,7 @@ export async function POST(req: NextRequest) {
  *                     type: object
  *                     properties:
  *                       path:
- *                         type: array
- *                         items:
- *                           type: string
+ *                         type: string
  *                       message:
  *                         type: string
  *       401:
