@@ -18,6 +18,9 @@ datasource db {
 
 model User {
   id                 String   @id @default(uuid())
+  first_name         String
+  last_name          String
+  phone_number       String
   email              String   @unique
   password           String
   company_name       String
@@ -27,6 +30,7 @@ model User {
   two_factor_enabled Boolean  @default(false)
   created_at         DateTime @default(now())
   updated_at         DateTime @updatedAt
+  deleted_at         DateTime?
   kyc_documents      KYCDocument[]
   invoices           Invoice[]
   milestones         Milestone[]
@@ -44,8 +48,10 @@ model Admin {
   is_active          Boolean  @default(true)
   created_at         DateTime @default(now())
   updated_at         DateTime @updatedAt
+  deleted_at         DateTime?
   reviewed_kyc       KYCDocument[]
   reviewed_invoices  Invoice[]
+  created_vendors     Vendor[]
   reviewed_funding_requests FundingRequest[]
   activity_logs       ActivityLog[]
 }
@@ -57,25 +63,33 @@ model KYCDocument {
   document_type      String
   document_url       String
   status             ApprovalStatus
+  deleted_at         DateTime?
   submission_date    DateTime @default(now())
   review_date        DateTime?
-
   user               User     @relation(fields: [user_id], references: [id])
   reviewed_by        Admin?   @relation(fields: [admin_id], references: [id])
+
+  @@unique(name: "user_document_type", fields: [user_id, document_type])
 }
 
 model Invoice {
   id                 String   @id @default(uuid())
   user_id            String
   admin_id           String?
+  description        String?
+  quantity           Int
+  price_per_unit     Float
+  total_price        Float?
+  invoice_file       String?
   invoice_number     String
-  amount             Float
   payment_terms      String
   due_date           DateTime
-  status             ApprovalStatus
+  vendor_id          String
+  vendor             Vendor   @relation(fields: [vendor_id], references: [id])
+  status             ApprovalStatus @default(PENDING)
+  deleted_at         DateTime?
   submission_date    DateTime @default(now())
   review_date        DateTime?
-
   user               User     @relation(fields: [user_id], references: [id])
   reviewed_by        Admin?   @relation(fields: [admin_id], references: [id])
   milestones         Milestone[]
@@ -86,27 +100,37 @@ model Milestone {
   id                 String   @id @default(uuid())
   user_id            String
   invoice_id         String
-  amount             Float
+  description        String?
+  supporting_doc     String?
+  bank_details       String
   due_date           DateTime
   status             ApprovalStatus
-  description        String?
-
+  logistics_amount   Float
+  payment_amount     Float
   user               User     @relation(fields: [user_id], references: [id])
   invoice            Invoice  @relation(fields: [invoice_id], references: [id])
+  created_at         DateTime @default(now())
+  updated_at         DateTime @updatedAt
+  deleted_at         DateTime?
+  funding_requests   FundingRequest[]
 }
+
 
 model FundingRequest {
   id                 String   @id @default(uuid())
   user_id            String
   admin_id           String?
-  amount             Float
+  milestone_id       String
+  requested_amount   Float
+  your_contribution  Float
   status             ApprovalStatus
   submission_date    DateTime @default(now())
   review_date        DateTime?
-
+  deleted_at         DateTime?
   user               User     @relation(fields: [user_id], references: [id])
   reviewed_by        Admin?   @relation(fields: [admin_id], references: [id])
   invoices           Invoice[]
+  milestone          Milestone @relation(fields: [milestone_id], references: [id])
 }
 
 model Notification {
@@ -116,7 +140,7 @@ model Notification {
   type               NotificationType
   is_read            Boolean  @default(false)
   created_at         DateTime @default(now())
-
+  deleted_at         DateTime?
   user               User     @relation(fields: [user_id], references: [id])
 }
 
@@ -133,6 +157,7 @@ model ActivityLog {
   admin_id    String
   admin      Admin     @relation(fields: [admin_id], references: [id])
   createdAt DateTime @default(now())
+  deleted_at         DateTime?
 }
 
 enum AdminRole {
@@ -152,4 +177,21 @@ enum NotificationType {
   MILESTONE_UPDATE
   FUNDING_UPDATE
   SYSTEM_ALERT
+}
+
+model Vendor {
+  id                 String   @id @default(uuid())
+  name               String
+  contact_person     String
+  contact_person_phone_number String?
+  phone_number       String
+  address            String
+  email              String   @unique
+  bank_name          String?
+  bank_account_number String?
+  deleted_at         DateTime?
+  invoices           Invoice[]
+  created_by          String?
+  admin               Admin?  @relation(fields: [created_by], references: [id])
+  created_at         DateTime @default(now())
 }
