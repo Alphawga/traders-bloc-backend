@@ -28,7 +28,7 @@ const updateAdminSchema = z.object({
         },
       });
   
-      await logAdminActivity(ctx.session, `Updated admin: ${updatedAdmin.email}`);
+      await logAdminActivity(ctx.session, `Updated admin: ${updatedAdmin.email}`, "INVOICE_UPDATE");
   
       return updatedAdmin;
     });
@@ -50,7 +50,7 @@ const updateAdminSchema = z.object({
         });
       }
   
-      await logAdminActivity(ctx.session, `Deleted admin: ${deletedAdmin.email}`);
+      await logAdminActivity(ctx.session, `Deleted admin: ${deletedAdmin.email}`, "INVOICE_UPDATE");
   
       return { message: 'Admin account deleted' };
     });
@@ -103,9 +103,11 @@ export const createAdmin = superAdminProcedure
         password: hashedPassword,
         role,
       },
+      select:{
+        email:true
+      }
     });
 
-    // Omit the password from the returned object
-    const { password: _, ...adminWithoutPassword } = newAdmin;
-    return adminWithoutPassword;
+
+    return newAdmin;
   });

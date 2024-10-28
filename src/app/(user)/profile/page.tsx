@@ -2,10 +2,9 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import * as z from "zod";
-import {  FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import MainHeader from "@/components/headers/mainHeader";
 import useUserStore from "@/store/user-store";
 import { trpc } from "@/app/_providers/trpc-provider";
 import { toast } from "@/hooks/use-toast";
@@ -24,7 +23,8 @@ import {
   TabsTrigger,
 } from "@/components/ui/tabs";
 import { userUpdateSchema } from "@/lib/dtos";
-import bcrypt from "bcrypt";
+import { useEffect } from "react";
+
 
 
 
@@ -47,6 +47,18 @@ function Profile() {
     },
   });
 
+  useEffect(()=>{
+  if(user){
+  form.setValue("first_name", user.first_name);
+  form.setValue("last_name", user.last_name);
+  form.setValue("email", user.email);
+  form.setValue("phone_number", user.phone_number);
+  form.setValue("company_name", user.company_name);
+  form.setValue("tax_id", user.tax_id);
+  form.setValue("industry", user.industry);
+  }
+  },[user, form])
+
   const updateUserMutation = trpc.updateUser.useMutation({
     onSuccess: () => {
       toast({
@@ -62,16 +74,7 @@ function Profile() {
   });
 
   const onSubmit = async (values: z.infer<typeof userUpdateSchema>) => {
-    if (values.current_password && values.new_password) {
-       const passwordMatch = await bcrypt.compare(values.current_password, user?.password || "");
-       if (!passwordMatch) {
-        toast({
-          title: "Current password is incorrect",
-          variant: "destructive",
-        });
-        return;
-       }
-    }
+
     try {
       await updateUserMutation.mutateAsync({ ...values, id: user?.id as string});
     } catch (error) {
@@ -81,94 +84,94 @@ function Profile() {
 
   return (
     <main>
-  
-      <section className="w-[80%] max-w-[800px] m-auto p-8">
-        <h1 className="text-3xl font-extrabold mb-6">Profile Settings</h1>
-        <Tabs defaultValue="profile">
-          <TabsList className="grid w-full grid-cols-4">
-            <TabsTrigger value="profile">Your Profile</TabsTrigger>
-            <TabsTrigger value="company">Company</TabsTrigger>
-            <TabsTrigger value="password">Password</TabsTrigger>
-            <TabsTrigger value="2fa">Two-Factor Auth</TabsTrigger>
-          </TabsList>
-          <TabsContent value="profile">
-            <Card>
-              <CardHeader>
-                <CardTitle>Your Profile</CardTitle>
-                <CardDescription>
-                  Make changes to your personal information here.
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="flex space-x-4">
-                  <FormField
-                    control={form.control}
-                    name="first_name"
-                    render={({ field }) => (
-                      <FormItem className="flex-1">
-                        <FormLabel>First Name</FormLabel>
-                        <FormControl>
-                          <Input placeholder="John" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <FormField
-                    control={form.control}
-                    name="last_name"
-                    render={({ field }) => (
-                      <FormItem className="flex-1">
-                        <FormLabel>Last Name</FormLabel>
-                        <FormControl>
-                          <Input placeholder="Doe" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                </div>
-                <div className="flex space-x-4">
-                  <FormField
-                    control={form.control}
-                    name="email"
-                    render={({ field }) => (
-                      <FormItem className="flex-1">
-                        <FormLabel>Email</FormLabel>
-                        <FormControl>
-                          <Input type="email" placeholder="john.doe@company.com" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <FormField
-                    control={form.control}
-                    name="phone_number"
-                    render={({ field }) => (
-                      <FormItem className="flex-1">
-                        <FormLabel>Phone number</FormLabel>
-                        <FormControl>
-                          <Input type="tel" placeholder="Phone number" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                </div>
-              </CardContent>
-              <CardFooter>
-                <Button
-                  type="submit"
-                  className="w-[20%]"
-                  disabled={updateUserMutation.isLoading}
-                  onClick={form.handleSubmit(onSubmit)}
-                >
-                  Save changes
-                </Button>
-              </CardFooter>
-            </Card>
-          </TabsContent>
+      <section className="">
+       
+        <Form {...form}>
+          <form onSubmit={form.handleSubmit(onSubmit)}>
+            <Tabs defaultValue="profile">
+              <TabsList className="grid w-full grid-cols-4">
+                <TabsTrigger value="profile">Your Profile</TabsTrigger>
+                <TabsTrigger value="company">Company</TabsTrigger>
+                <TabsTrigger value="password">Password</TabsTrigger>
+                <TabsTrigger value="2fa">Two-Factor Auth</TabsTrigger>
+              </TabsList>
+              <TabsContent value="profile">
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Your Profile</CardTitle>
+                    <CardDescription>
+                      Make changes to your personal information here.
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div className="flex space-x-4">
+                      <FormField
+                        control={form.control}
+                        name="first_name"
+                        render={({ field }) => (
+                          <FormItem className="flex-1">
+                            <FormLabel>First Name</FormLabel>
+                            <FormControl>
+                              <Input placeholder="John" {...field} />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      <FormField
+                        control={form.control}
+                        name="last_name"
+                        render={({ field }) => (
+                          <FormItem className="flex-1">
+                            <FormLabel>Last Name</FormLabel>
+                            <FormControl>
+                              <Input placeholder="Doe" {...field} />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    </div>
+                    <div className="flex space-x-4">
+                      <FormField
+                        control={form.control}
+                        name="email"
+                        render={({ field }) => (
+                          <FormItem className="flex-1">
+                            <FormLabel>Email</FormLabel>
+                            <FormControl>
+                              <Input type="email" placeholder="john.doe@company.com" {...field} />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      <FormField
+                        control={form.control}
+                        name="phone_number"
+                        render={({ field }) => (
+                          <FormItem className="flex-1">
+                            <FormLabel>Phone number</FormLabel>
+                            <FormControl>
+                              <Input type="tel" placeholder="Phone number" {...field} />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    </div>
+                  </CardContent>
+                  <CardFooter>
+                    <Button
+                      type="submit"
+                      className="w-[20%]"
+                      disabled={updateUserMutation.isLoading}
+                    >
+                      Save changes
+                    </Button>
+                  </CardFooter>
+                </Card>
+              </TabsContent>
               <TabsContent value="company">
                 <Card>
                   <CardHeader>
@@ -177,7 +180,7 @@ function Profile() {
                       Make changes to your company information here.
                     </CardDescription>
                   </CardHeader>
-                    <CardContent className="space-y-4">
+                  <CardContent className="space-y-4">
                     <div className="flex space-x-4">
                       <FormField
                         control={form.control}
@@ -199,68 +202,67 @@ function Profile() {
                       type="submit"
                       className="w-[20%]"
                       disabled={updateUserMutation.isLoading}
-                      onClick={form.handleSubmit(onSubmit)}
                     >
                       Save changes
                     </Button>
                   </CardFooter>
-                  </Card>
-          </TabsContent>
-          <TabsContent value="password">
-            <Card>
-              <CardHeader>
-                <CardTitle>Password</CardTitle>
-                <CardDescription>
-                  Change your password here.
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="flex space-x-4">
-
-                  <FormField
-                    control={form.control}
-                    name="current_password"
-                    render={({ field }) => (
-                      <FormItem className="flex-1">
-                        <FormLabel>Current Password</FormLabel>
-                        <FormControl>
-                          <Input type="password" placeholder="********" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <FormField
-                    control={form.control}
-                    name="new_password"
-                    render={({ field }) => (
-                      <FormItem className="flex-1">
-                        <FormLabel>New Password</FormLabel>
-                        <FormControl>
-                          <Input type="password" placeholder="********" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                </div>
-              </CardContent>
-              <CardFooter>
-                <Button
-                  type="submit"
-                  className="w-[20%]"
-                  disabled={updateUserMutation.isLoading}
-                    onClick={form.handleSubmit(onSubmit)}
-                >
-                  Save changes
-                </Button>
-              </CardFooter>
-            </Card>
-          </TabsContent>
-          <TabsContent value="2fa">
-          {/* 2FA content */}
-          </TabsContent>
-        </Tabs>
+                </Card>
+              </TabsContent>
+              <TabsContent value="password">
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Password</CardTitle>
+                    <CardDescription>
+                      Change your password here.
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div className="flex space-x-4">
+                      <FormField
+                        control={form.control}
+                        name="current_password"
+                        render={({ field }) => (
+                          <FormItem className="flex-1">
+                            <FormLabel>Current Password</FormLabel>
+                            <FormControl>
+                              <Input type="password" placeholder="********" {...field} />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      <FormField
+                        control={form.control}
+                        name="new_password"
+                        render={({ field }) => (
+                          <FormItem className="flex-1">
+                            <FormLabel>New Password</FormLabel>
+                            <FormControl>
+                              <Input type="password" placeholder="********" {...field} />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    </div>
+                  </CardContent>
+                  <CardFooter>
+                    <Button
+                      type="submit"
+                      className="w-[20%]"
+                      disabled={updateUserMutation.isLoading}
+                    >
+                      Save changes
+                    </Button>
+                  </CardFooter>
+                </Card>
+              </TabsContent>
+              <TabsContent value="2fa">
+                {/* 2FA content */}
+              </TabsContent>
+            </Tabs>
+          </form>
+        </Form>
       </section>
     </main>
   );

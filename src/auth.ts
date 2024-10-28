@@ -38,7 +38,6 @@ export const authOptions: NextAuthOptions = {
           }
         }
 
-        // If not found in User table, check Admin table
         const admin = await prisma.admin.findUnique({
           where: {
             email: credentials.email
@@ -52,7 +51,7 @@ export const authOptions: NextAuthOptions = {
               id: admin.id,
               email: admin.email,
               name: admin.name,
-              role: admin.role // This will be either "ADMIN" or "SUPER_ADMIN"
+              role: admin.role 
             };
           }
         }

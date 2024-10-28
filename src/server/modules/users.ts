@@ -5,6 +5,7 @@ import { TRPCError } from '@trpc/server';
 import bcrypt from 'bcrypt';
 import { fundingRequestSchema, invoiceSchema, milestoneSchema, userUpdateSchema } from '@/lib/dtos';
 import { v2 as cloudinary } from "cloudinary";
+import { Prisma } from '@prisma/client';
 
 
 
@@ -59,11 +60,14 @@ export const registerUser = publicProcedure
           tax_id,
           industry,
         },
+        select:{
+          first_name: true
+        }
       });
 
 
-      const { password: _, ...userWithoutPassword } = newUser;
-      return userWithoutPassword;
+      
+      return newUser;
     } catch (error) {
       console.error('Registration error:', error);
       throw new TRPCError({
@@ -222,8 +226,8 @@ export const getUserData = publicProcedure
       const user = await prisma.user.findUnique({
         where: { id: userId },
         include: {
-          invoices: true,
-          funding_requests: true,
+          invoices: {include: {milestones:{include: {funding_requests: true}}}},
+          funding_requests: {include:{milestone: true}},
           milestones: true,
           kyc_documents: true,  
         },
@@ -312,39 +316,106 @@ export const updateMilestone = publicProcedure
   export const updateUser = publicProcedure
   .input(userUpdateSchema)
   .mutation(async ({ input }) => {
+    const { id, current_password, new_password, ...data } = input;
+
     try {
-      const { id, current_password, new_password, ...data } = input;
-      const user = await prisma.user.findUnique({ where: { id } });
-      if (!user) {
-        throw new TRPCError({
-          code: 'NOT_FOUND',
-          message: 'User not found',
-        });
-      }
-      const passwordMatch = await bcrypt.compare(current_password, user.password);
-      if (!passwordMatch) {
+      // Check if user exists
+      const user = await prisma.user.findUniqueOrThrow({
+        where: { id },
+        select: {
+          id: true,
+          password: true,
+          email: true,
+        },
+      });
+
+      // Prepare update data
+      let updateData: { 
+        first_name?: string; 
+        last_name?: string; 
+        phone_number?: string; 
+        email?: string; 
+        company_name?: string; 
+        tax_id?: string; 
+        industry?: string; 
+        password?: string; 
+      } = { ...data };
+
+      // Handle password update if current_password is provided
+      if (current_password) {
+        // Verify current password is provided with new password
+        if (!new_password) {
+          throw new TRPCError({
+            code: 'BAD_REQUEST',
+            message: 'New password must be provided when updating password',
+          });
+        }
+
+        // Verify current password
+        const passwordMatch = await bcrypt.compare(current_password, user.password);
+        if (!passwordMatch) {
+          throw new TRPCError({
+            code: 'BAD_REQUEST',
+            message: 'Current password is incorrect',
+          });
+        }
+
+       
+        updateData = {
+          ...updateData,
+          password: await bcrypt.hash(new_password, 12),
+        };
+      } else if (new_password) {
+        // If new_password is provided without current_password
         throw new TRPCError({
           code: 'BAD_REQUEST',
-          message: 'Current password is incorrect',
+          message: 'Current password is required to update password',
         });
       }
+
       const updatedUser = await prisma.user.update({
         where: { id },
         data: {
-          ...data,
-          password: await bcrypt.hash(new_password, 10),
+          ...updateData,
+          updated_at: new Date(),
+        },
+        select: {
+          id: true,
+          email: true,
+          first_name: true,
+          last_name: true,
+          created_at: true,
+          updated_at: true,
         },
       });
 
       return updatedUser;
+
     } catch (error) {
+      if (error instanceof TRPCError) {
+        throw error;
+      }
+
+      if (error instanceof Prisma.PrismaClientKnownRequestError) {
+        if (error.code === 'P2002') {
+          throw new TRPCError({
+            code: 'CONFLICT',
+            message: 'Email already exists',
+          });
+        }
+        if (error.code === 'P2025') {
+          throw new TRPCError({
+            code: 'NOT_FOUND',
+            message: 'User not found',
+          });
+        }
+      }
+
       console.error('User update error:', error);
       throw new TRPCError({
         code: 'INTERNAL_SERVER_ERROR',
         message: 'Failed to update user',
       });
-    } finally {
-      await prisma.$disconnect();
     }
   });
 
@@ -473,3 +544,11 @@ export const createFundingRequest = publicProcedure
     }
   });
 
+
+  export const getUserInvoices = publicProcedure
+  .query(async({ctx})=>{
+    const invoices = await prisma.invoice.findMany({
+      where: {user_id: ctx.session?.user.id??""}
+    })
+    return invoices
+  })

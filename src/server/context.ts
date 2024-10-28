@@ -4,7 +4,7 @@ import { AdminRole } from "@prisma/client";
 import { Session } from "next-auth";
 import SuperJSON from "superjson";
 
-// ... existing code ...
+
 export const t = initTRPC.context<{ session?: Session | null }>().create({ transformer: SuperJSON });
 
 export function createProcedure(requiredRole?: AdminRole) {
@@ -16,7 +16,6 @@ export function createProcedure(requiredRole?: AdminRole) {
     }
 
     if (requiredRole) {
-      // Check if the user is a super admin or has the required role
       if (session.user.role !== AdminRole.SUPER_ADMIN && session.user.role !== requiredRole) {
         throw new TRPCError({ code: "FORBIDDEN" });
       }

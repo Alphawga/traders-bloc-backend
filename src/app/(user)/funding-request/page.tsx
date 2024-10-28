@@ -1,6 +1,5 @@
 "use client";
-import { useState} from "react";
-import { useRouter } from "next/navigation";
+import { useState } from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import { Button } from "@/components/ui/button";
@@ -33,13 +32,15 @@ import { fundingRequestSchema } from "@/lib/dtos";
 import { useToast } from "@/hooks/use-toast";
 import useUserStore from "@/store/user-store";
 import { z } from "zod";
+import { Label } from "@/components/ui/label";
 
 function FundingRequest() {
-  const router = useRouter();
-  const [selectedMilestone, setSelectedMilestone] = useState("");
-const {toast} = useToast();
-const {user} = useUserStore();
-
+ 
+  const [selectedInvoice, setSelectedInvoice] = useState<string | undefined>(undefined); 
+  const [selectedMilestone, setSelectedMilestone] = useState<string | undefined>(undefined); 
+  const { toast } = useToast();
+  const { user } = useUserStore();
+  const utils = trpc.useUtils();
 
   const createFundingRequest = trpc.createFundingRequest.useMutation({
     onSuccess: () => {
@@ -47,7 +48,8 @@ const {user} = useUserStore();
         title: "Success",
         description: "Funding request created successfully",
       });
-      router.push("/transaction");
+      utils.getUserData.invalidate();
+      
     },
     onError: (error) => {
       toast({
@@ -63,36 +65,58 @@ const {user} = useUserStore();
     defaultValues: {
       requested_amount: 0,
       your_contribution: 0,
-      milestone_id: "",
+      milestone_id: selectedMilestone ?? "",
     },
   });
 
-  const onSubmit = (data: z.infer<typeof fundingRequestSchema>) => {
-    createFundingRequest.mutate(data);
-  };
+ 
+  const milestones = selectedInvoice
+    ? user?.invoices?.find((invoice) => invoice.id === selectedInvoice)?.milestones || []
+    : [];
 
+ 
   const filteredRequests = selectedMilestone
     ? user?.funding_requests?.filter((request) => request.milestone_id === selectedMilestone)
-    : user?.funding_requests;
+    : [];
+
+  const onSubmit = (data: z.infer<typeof fundingRequestSchema>) => {
+    createFundingRequest.mutate({...data, milestone_id: selectedMilestone ??""});
+  };
 
   return (
-    <div className="w-full h-full lg:w-[80%] m-auto p-8 flex flex-col items-center justify-center mb-4">
-      <h1 className="text-3xl font-extrabold mb-8">Funding Requests</h1>
-      
-      <div className="w-full mb-12">
-        <Select onValueChange={setSelectedMilestone} value={selectedMilestone}>
+    <div className="">
+      <div className="mb-12">
+       <Label> Select Invoice </Label>
+        <Select onValueChange={setSelectedInvoice} value={selectedInvoice}>
           <SelectTrigger className="w-[200px] mb-4">
-            <SelectValue placeholder="Filter by milestone" />
+            <SelectValue placeholder="Select an invoice" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="">All milestones</SelectItem>
-            {user?.milestones?.map((milestone) => (
-              <SelectItem key={milestone.id} value={milestone.id}>
-                {milestone.description}
+            {user?.invoices?.map((invoice) => (
+              <SelectItem key={invoice.id} value={invoice.id}>
+                {invoice.description}
               </SelectItem>
             ))}
           </SelectContent>
         </Select>
+
+        <Label> Select Milestone </Label>
+        {selectedInvoice && (
+          <Select onValueChange={setSelectedMilestone} value={selectedMilestone}>
+            <SelectTrigger className="w-[200px] mb-4">
+              <SelectValue placeholder="Select a milestone" />
+            </SelectTrigger>
+            <SelectContent>
+              {milestones.map((milestone) => (
+                <SelectItem key={milestone.id} value={milestone.id}>
+                  {milestone.description}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        )}
+
+    
         <Table>
           <TableHeader>
             <TableRow>
@@ -105,79 +129,60 @@ const {user} = useUserStore();
           <TableBody>
             {filteredRequests?.map((request) => (
               <TableRow key={request.id}>
-                <TableCell>{request.submission_date.toLocaleDateString()}</TableCell>
+                <TableCell>{new Date(request.submission_date).toLocaleDateString()}</TableCell>
                 <TableCell>${request.requested_amount.toFixed(2)}</TableCell>
-                <TableCell>{request.milestone_id}</TableCell>
-                <TableCell>{request.status}</TableCell>
+                <TableCell>{request.milestone.description}</TableCell>
+                <TableCell className={`${request.status === "PENDING" ? "text-yellow-500" : status === "APPROVED" ? "text-green-500" : "text-red-500"}`}>{request.status}</TableCell>
               </TableRow>
             ))}
           </TableBody>
         </Table>
       </div>
 
-      <h2 className="text-2xl font-bold mb-4">Create New Funding Request</h2>
-      <Form {...form}>
-        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8 w-full max-w-md">
-          <FormField
-            control={form.control}
-            name="requested_amount"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Requested funding amount</FormLabel>
-                <FormControl>
-                  <Input type="number" placeholder="$0.00" {...field} />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-          
-          <FormField
-            control={form.control}
-            name="your_contribution"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Your contribution amount</FormLabel>
-                <FormControl>
-                  <Input type="number" placeholder="$0.00" {...field} />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-          
-          <FormField
-            control={form.control}
-            name="milestone_id"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Milestone</FormLabel>
-                <Select onValueChange={field.onChange} value={field.value}>
+      <div className="bg-gray-50 p-6 rounded-lg">
+        <h2 className="text-2xl font-bold mb-4">Create New Funding Request</h2>
+        <Form {...form}>
+          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8 max-w-md">
+            <FormField
+              control={form.control}
+              name="requested_amount"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Requested funding amount</FormLabel>
                   <FormControl>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select a milestone" />
-                    </SelectTrigger>
+                    <Input type="number" 
+                    placeholder="$0.00" 
+                    {...field}
+                    onChange={(e) => field.onChange(Number(e.target.value))} 
+                     />
                   </FormControl>
-                  <SelectContent>
-                    {user?.milestones?.map((milestone) => (
-                      <SelectItem key={milestone.id} value={milestone.id}>
-                        {milestone.description}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-          
-          
-          
-          <Button type="submit" disabled={createFundingRequest.isLoading}>
-            {createFundingRequest.isLoading ? "Submitting..." : "Submit request"}
-          </Button>
-        </form>
-      </Form>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="your_contribution"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Your contribution amount</FormLabel>
+                  <FormControl>
+                    <Input type="number" placeholder="$0.00" {...field}
+                    onChange={(e) => field.onChange(Number(e.target.value))}  />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+
+            <Button type="submit" disabled={createFundingRequest.isLoading}>
+              {createFundingRequest.isLoading ? "Submitting..." : "Submit request"}
+            </Button>
+          </form>
+        </Form>
+      </div>
     </div>
   );
 }

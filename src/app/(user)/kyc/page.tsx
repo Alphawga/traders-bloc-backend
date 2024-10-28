@@ -1,14 +1,13 @@
 "use client";
 import { useState, ChangeEvent } from "react";
-import Button from "@/components/form/button";
-import SignupHeader from "@/components/headers/signupHeader";
 import { useRouter } from "next/navigation";
-
 import Image from 'next/image';
 import { useToast } from "@/hooks/use-toast";
 import useUserStore from "@/store/user-store";
 import { trpc } from "@/app/_providers/trpc-provider";
 import { Input } from "@/components/ui/input";
+import PageBreadcrumb from "@/components/page-breadcrumb";
+import { Button } from "@/components/ui/button";
 
 type DocumentType = 'businessName' | 'legalAddress' | 'registrationNumber' | 'taxInformation' | 'incorporationDocuments';
 
@@ -93,25 +92,29 @@ function KYB() {
   };
 
   const handleSubmit = () => {
-    // You can add any additional logic here if needed
+    
     router.push('/invoices');
   };
 
   return (
-    <>
-      <SignupHeader />
-      <div className="w-full h-full lg:w-[80%] m-auto p-8 flex flex-col items-center justify-center mb-4">
-        <p className="max-md:text-2xl lg:text-3xl font-extrabold max-md:text-center max-sm:tracking-tighter lg:tracking-tight">
+    <div className="w-full h-full">
+      {/* Breadcrumb */}
+      <div className="p-4 lg:p-8">
+        <PageBreadcrumb />
+      </div>
+
+      <div className="w-full lg:w-[80%] mx-auto p-4 lg:p-8 flex flex-col items-center justify-center mb-4">
+        <p className="text-2xl lg:text-3xl font-extrabold text-center lg:text-left tracking-tight">
           Upload your documents
         </p>
-        <p className="max-md:text-xs lg:text-sm text-text_light m-2 max-md:w-full lg:w-[70%] text-center mb-5">
+        <p className="text-sm lg:text-base text-text_light m-2 w-full lg:w-[70%] text-center mb-5">
           Please upload each document as a PDF, PNG, or JPG file. Each file
           cannot exceed 10MB. If you have any questions, please see our FAQ.
         </p>
-        <div className="max-md:w-full lg:w-[80%] flex flex-col gap-8 mt-8">
+        <div className="w-full lg:w-[80%] flex flex-col gap-8 mt-8">
           {(Object.keys(uploads) as Array<DocumentType>).map((key) => (
-            <div key={key} className="flex justify-between items-center">
-              <div className="flex flex-col">
+            <div key={key} className="flex flex-col lg:flex-row justify-between items-start lg:items-center">
+              <div className="flex flex-col mb-2 lg:mb-0">
                 <p className="text-text text-lg tracking-tight">
                   {key.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase())}
                 </p>
@@ -127,7 +130,7 @@ function KYB() {
                   Status: {documentStatuses[key]}
                 </p>
               </div>
-              <div>
+              <div className="flex flex-col lg:flex-row items-center">
                 <Input
                   title="Upload"
                   type="file"
@@ -137,37 +140,36 @@ function KYB() {
                   accept=".pdf,.png,.jpg,.jpeg"
                 />
                 <label htmlFor={key}>
-                  <Button text="Upload" color="primary" className="px-8 cursor-pointer" />
+                  <Button type="button"
+                  className="px-8 cursor-pointer mb-2 lg:mb-0 lg:mr-2">
+
+                    Upload
+                    </Button> 
                 </label>
+                {uploads[key] && (
+                  <div className="mt-2 lg:mt-0">
+                    <Image
+                      src={uploads[key]!}
+                      alt={`${key} preview`}
+                      width={50}
+                      height={50}
+                      objectFit="contain"
+                    />
+                  </div>
+                )}
               </div>
-              {uploads[key] && (
-                <div className="mt-2">
-                  <Image
-                    src={uploads[key]!}
-                    alt={`${key} preview`}
-                    width={50}
-                    height={50}
-                    objectFit="contain"
-                  />
-                </div>
-              )}
             </div>
           ))}
-        
-       
 
           <div className="flex flex-row items-end place-content-end justify-end mt-4">
-            <Button
-              text="Submit"
-              color="secondary"
-              className="lg:w-[20%]"
-              onClick={handleSubmit}
-              disabled={upsertKYCDocument.isLoading}
-            />
+            <Button type="submit" onClick={handleSubmit}>
+              Submit
+            </Button>
+            
           </div>
         </div>
       </div>
-    </>
+    </div>
   );
 }
 

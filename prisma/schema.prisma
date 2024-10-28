@@ -53,7 +53,9 @@ model Admin {
   reviewed_invoices  Invoice[]
   created_vendors     Vendor[]
   reviewed_funding_requests FundingRequest[]
+  reviewed_milestones Milestone[]
   activity_logs       ActivityLog[]
+  notifications       Notification[]
 }
 
 model KYCDocument {
@@ -99,6 +101,7 @@ model Invoice {
 model Milestone {
   id                 String   @id @default(uuid())
   user_id            String
+  admin_id           String?
   invoice_id         String
   description        String?
   supporting_doc     String?
@@ -107,9 +110,12 @@ model Milestone {
   status             ApprovalStatus
   logistics_amount   Float
   payment_amount     Float
+  approved_at         DateTime?
+  paid_at             DateTime?
   user               User     @relation(fields: [user_id], references: [id])
   invoice            Invoice  @relation(fields: [invoice_id], references: [id])
   created_at         DateTime @default(now())
+  reviewed_by        Admin?   @relation(fields: [admin_id], references: [id])
   updated_at         DateTime @updatedAt
   deleted_at         DateTime?
   funding_requests   FundingRequest[]
@@ -135,13 +141,16 @@ model FundingRequest {
 
 model Notification {
   id                 String   @id @default(uuid())
-  user_id            String
+  user_id            String?
+  admin_id           String?
   message            String
+  link               String?
   type               NotificationType
   is_read            Boolean  @default(false)
   created_at         DateTime @default(now())
   deleted_at         DateTime?
-  user               User     @relation(fields: [user_id], references: [id])
+  user               User?     @relation(fields: [user_id], references: [id])
+  admin              Admin? @relation(fields: [admin_id], references: [id])
 }
 
 model Permission {
@@ -155,8 +164,10 @@ model ActivityLog {
   id        String   @id @default(uuid())
   action    String
   admin_id    String
+  type        NotificationType
+  link        String?
   admin      Admin     @relation(fields: [admin_id], references: [id])
-  createdAt DateTime @default(now())
+  created_at DateTime @default(now())
   deleted_at         DateTime?
 }
 

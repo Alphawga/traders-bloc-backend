@@ -1,8 +1,13 @@
 import { trpc } from '@/app/_providers/trpc-provider';
-import { useQuery } from '@tanstack/react-query';
 
 
-export function useUserData(userId: string | undefined) {
- const userData = trpc.getUserData.useQuery( userId ?? '' );
- return userData;
+export function useUserData(userId: string | undefined, type: 'USER' | 'ADMIN') {
+    if(type === "USER"){
+
+        const userData = trpc.getUserData.useQuery( userId ?? '' );
+        return userData;
+    }else{
+        const adminData = trpc.getAdminData.useQuery()
+        return adminData;
+    }
 }

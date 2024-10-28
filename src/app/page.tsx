@@ -1,72 +1,126 @@
-"use client"
-import { useRouter } from 'next/navigation'; // <-- from 'next/navigation'
-import { useState } from 'react';
-import { signIn } from 'next-auth/react';
+'use client'
+
+import { useState } from 'react'
+import { useRouter } from 'next/navigation'
+import { getSession, signIn } from 'next-auth/react'
+import Link from 'next/link'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { EyeIcon, EyeOffIcon } from 'lucide-react'
+import { useToast } from '@/hooks/use-toast'
 
 export default function LoginPage() {
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [error, setError] = useState('');
-  const router = useRouter(); // <-- Now from 'next/navigation'
+  const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
+  const [error, setError] = useState('')
+  const [showPassword, setShowPassword] = useState(false)
+  const router = useRouter()
+  const { toast } = useToast()
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setError('');
-
+  
+ 
     const res = await signIn('credentials', {
       redirect: false,
       email,
       password,
     });
-
+  
     if (res?.error) {
+      
       setError(res.error);
     } else {
-      // Redirect to dashboard or homepage after successful login
-      router.push('/dashboard');
+      
+      const session = await getSession();
+  
+     
+      if (session?.user.role === 'ADMIN') {
+        toast({
+          title: "Login successful",
+          variant: "default",
+        });
+        router.push('/admin/dashboard');  
+      } else if (session?.user.role === 'USER') {
+        toast({
+          title: "Login successful",
+          variant: "default",
+        });
+        router.push('/dashboard');  
+      } else {
+       
+        toast({
+          title: "Login successful",
+          variant: "default",
+        });
+        router.push('/'); 
+      }
     }
   };
 
   return (
-    <div className="flex justify-center items-center min-h-screen bg-gray-100">
-      <div className="p-6 max-w-md w-full bg-white rounded-lg shadow-md">
-        <h2 className="text-2xl font-semibold mb-4">Login</h2>
-        {error && <p className="text-red-500">{error}</p>}
-        <form onSubmit={handleSubmit}>
-          <div className="mb-4">
-            <label htmlFor="email" className="block text-sm font-medium text-gray-700">
-              Email
-            </label>
-            <input
+    <div className="flex justify-center items-center min-h-screen bg-white p-4">
+      <div className="w-full max-w-md space-y-8">
+        <div className="text-center">
+          <h2 className="text-3xl font-bold">Log into your Account</h2>
+        </div>
+        <form onSubmit={handleSubmit} className="space-y-6">
+          <div className="space-y-2">
+            <Label htmlFor="email">E-Mail Address</Label>
+            <Input
               id="email"
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+              placeholder="Enter your E-Mail Address"
               required
             />
           </div>
-          <div className="mb-4">
-            <label htmlFor="password" className="block text-sm font-medium text-gray-700">
-              Password
-            </label>
-            <input
-              id="password"
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
-              required
-            />
+          <div className="space-y-2">
+            <Label htmlFor="password">Password</Label>
+            <div className="relative">
+              <Input
+                id="password"
+                type={showPassword ? 'text' : 'password'}
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="Enter your Password"
+                required
+              />
+              <button
+                type="button"
+                className="absolute inset-y-0 right-0 pr-3 flex items-center"
+                onClick={() => setShowPassword(!showPassword)}
+              >
+                {showPassword ? (
+                  <EyeOffIcon className="h-4 w-4 text-gray-400" />
+                ) : (
+                  <EyeIcon className="h-4 w-4 text-gray-400" />
+                )}
+              </button>
+            </div>
           </div>
-          <button
-            type="submit"
-            className="w-full py-2 px-4 bg-blue-500 hover:bg-blue-700 text-white font-semibold rounded-lg"
-          >
-            Login
-          </button>
+          <div className="text-right">
+            <Link href="/forgot-password" className="text-sm text-gray-600 hover:underline">
+              Forgot Password?
+            </Link>
+          </div>
+          {error && <p className="text-red-500 text-sm">{error}</p>}
+          <Button type="submit" className="w-full">
+            Log In
+          </Button>
         </form>
+        <div className="text-center">
+          <p className="text-sm text-gray-600">
+            Don&apos;t Have an Account?{' '}
+            <Link href="/sign-up" className="font-medium text-black hover:underline">
+              Sign Up
+            </Link>
+          </p>
+        </div>
       </div>
     </div>
-  );
+  )
 }

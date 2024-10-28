@@ -1,119 +1,115 @@
-"use client"
+'use client'
 
-import Container from "@/components/container";
-import FormGroup from "@/components/form/formgroup";
-import useUserStore from "@/store/user-store";
+import { useState, useEffect } from 'react'
+import { useRouter } from 'next/navigation'
+import Image from 'next/image'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Button } from '@/components/ui/button'
+import { ArrowRight, Clock, DollarSign } from 'lucide-react'
+import useUserStore from '@/store/user-store'
 
-import Image from "next/image";
-import Link from "next/link";
+export default function Dashboard() {
+  const router = useRouter()
+  const { user } = useUserStore()
+  const [greeting, setGreeting] = useState('')
 
-import { GoArrowRight } from "react-icons/go";
-import { LuWatch } from "react-icons/lu";
-import { FaRegMoneyBillAlt } from "react-icons/fa";
+  useEffect(() => {
+    const hour = new Date().getHours()
+    if (hour < 12) setGreeting('Good Morning')
+    else if (hour < 18) setGreeting('Good Afternoon')
+    else setGreeting('Good Evening')
+  }, [])
 
-function Dashboard() {
+  const quickLinks = [
+    { title: 'Submit an invoice', icon: <ArrowRight className="h-5 w-5" />, href: '/invoices' },
+    { title: 'Track milestones', icon: <Clock className="h-5 w-5" />, href: '/milestone' },
+    { title: 'Request funding', icon: <DollarSign className="h-5 w-5" />, href: '/funding-request' },
+  ]
 
-  const { user } = useUserStore();
-
-
+  const summaryData = [
+    { title: 'Invoices', value: user?.invoices?.length || 0, change: '+20%', changeColor: 'text-green-600' },
+    { title: 'Funding requests', value: user?.funding_requests?.length || 0, change: '-50%', changeColor: 'text-red-600' },
+    { title: 'Total funded', value: `$${user?.invoices?.filter(invoice => invoice.status === 'APPROVED').reduce((acc, invoice) => acc + (invoice.total_price || 0), 0).toLocaleString()}`, change: '+$2,000', changeColor: 'text-green-600' },
+    { title: 'Upcoming payments', value: user?.invoices?.filter(invoice => invoice.status === 'PENDING').length || 0, change: '0%', changeColor: 'text-gray-600' },
+  ]
 
   return (
-    <main>
+    <div className="container mx-auto px-4 py-8">
       
-      <Container>
-        <>
-        <div className="flex lg:flex-row flex-col items-center lg:gap-8 gap-0">
-            <div className="overflow-hidden rounded-lg lg:w-2/4 w-full lg:h-[20rem] h-[15rem] bg-black">
-              <Image
-                src={"/images/bg_.png"}
-                alt="bg"
-                className="w-[100%] object-contain object-center lg:-translate-y-28"
-                width={100}
-                height={100}
-              />
+      <div className="relative overflow-hidden rounded-lg mb-8">
+        
+        <div className="absolute inset-0 bg-black bg-opacity-90">
+          <div className="h-full flex justify-between items-center p-6">
+            <div className="text-white">
+              <h2 className="text-2xl font-bold mb-2">Welcome Back!</h2>
+              <p>{greeting}, {user?.first_name}</p>
+              <p className="text-gray-300">Have a good Day Ahead</p>
             </div>
-            <div className="lg:w-2/4 w-full flex flex-col place-content-center items-center">
-              <p className="font-black lg:text-6xl text-3xl capitalize my-4">
-                {user?.company_name}
-              </p>
-              <div className="lg:w-[70%] w-[100%] lg:my-6">
-                <Link href={"/add-invoice"}>
-                  Submit Invoice
-                </Link>
-              </div>
-            </div>
+            <Button onClick={() => router.push('/invoices')} className="bg-white text-black hover:bg-gray-200">
+              Submit Invoice
+            </Button>
           </div>
-          <p className="max-md:text-md lg:text-xl max-md:text-text_light mt-8 mb-4 font-extrabold max-md:text-left text-center max-sm:tracking-tighter lg:tracking-tight">
-            Quick Links
-          </p>
-          <FormGroup>
-        <Link href="/add-invoice" className="flex flex-row items-center gap-4 w-full border border-bg_light rounded-lg p-4 px-8 cursor-pointer">
-          <GoArrowRight size={30} />
-          <p className="font-bold capitalize max-md:text-sm">Submit an invoice</p>
-        </Link>
-        <Link href="/milestone" className="flex flex-row items-center gap-4 w-full border border-bg_light rounded-lg p-4 px-8 cursor-pointer">
-          <LuWatch size={30} />
-          <p className="font-bold capitalize max-md:text-sm">Track milestones</p>
-        </Link>
-        <Link href="/funding-request" className="flex flex-row items-center gap-4 w-full border border-bg_light rounded-lg p-4 px-8 cursor-pointer">
-          <FaRegMoneyBillAlt size={30} />
-          <p className="font-bold capitalize max-md:text-sm">Request funding</p>
-        </Link>
-        </FormGroup>
-          <p className="max-md:text-md lg:text-xl  max-md:text-text_light mt-8 mb-4 font-extrabold max-md:text-left text-center max-sm:tracking-tighter lg:tracking-tight">
-            Summary
-          </p>
-          <FormGroup>
-            <div className="flex flex-col gap-1 w-full border border-bg_light rounded-lg p-4">
-              <p className=" capitalize text-text_light h-[50%]">Invoices</p>
-              <p className="font-bold text-3xl capitalize">{user?.invoices.length}</p>
-              <p className=" capitalize text-success"> {user?.invoices.filter(invoice => invoice.status === 'APPROVED').length ?? 0 / (user?.invoices.length ?? 0) * 100}%</p>
-            </div>
-            <div className="flex flex-col gap-1 w-full border border-bg_light rounded-lg p-4">
-              <p className=" capitalize text-text_light h-[50%]">Funding requests</p>
-              <p className="font-bold text-3xl capitalize">{user?.funding_requests.length}</p>
-              <p className=" capitalize text-success"> {user?.funding_requests.filter(request => request.status === 'APPROVED').length ?? 0 / (user?.funding_requests.length ?? 0) * 100}%</p>
-            </div>
-            <div className="flex flex-col gap-1 w-full border border-bg_light rounded-lg p-4">
-              <p className="capitalize text-text_light h-[50%]">Total funded</p>
-              <p className="font-bold text-3xl capitalize">${user?.invoices.filter(invoice => invoice.status === 'APPROVED').reduce((acc, invoice) => acc + (invoice.total_price ?? 0), 0)}</p>
-              <p className=" capitalize text-success">${user?.funding_requests.filter(request => request.status === 'APPROVED').reduce((acc, request) => acc + (request.requested_amount ?? 0), 0)}</p>
-            </div>
-            <div className="flex flex-col gap-1 w-full border border-bg_light rounded-lg p-4">
-              <p className=" capitalize text-text_light h-[50%]">Upcoming payments</p>
-              <p className="font-bold text-3xl capitalize">{user?.invoices.filter(invoice => invoice.status === 'PENDING').length}</p>
-              <p className=" capitalize text-text_light">${user?.invoices.filter(invoice => invoice.status === 'PENDING').reduce((acc, invoice) => acc + (invoice.total_price ?? 0), 0)}</p>
-            </div>
-          </FormGroup>
-          <p className="max-md:text-md lg:text-xl  max-md:text-text_light mt-8 mb-4 font-extrabold max-md:text-left text-center max-sm:tracking-tighter lg:tracking-tight">
-            Notification
-          </p>
-          <div className="flex flex-col gap-6">
-            <div className="flex flex-row items-center gap-2">
-              <div className="bg-bg_light overflow-hidden w-14 rounded-lg">
-                <Image src={"/images/not1.png"} alt="img" width={20}height={20} />
-              </div>
-              <div className="flex flex-col">
-                <p className="text-sm text-text">
-                  Invoice {user?.invoices?.filter(invoice => invoice.status === 'PENDING')?.[0]?.description} 
-                </p>
-                <p className="text-xs text-text_light">Due date: {user?.invoices?.filter(invoice => invoice.status === 'PENDING')?.[0]?.due_date ? new Date(user?.invoices?.filter(invoice => invoice.status === 'PENDING')?.[0]?.due_date).toLocaleDateString() : 'N/A'}</p>
-              </div>
-            </div>
-            <div className="flex flex-row items-center gap-2">
-              <div className="bg-bg_light overflow-hidden w-14 rounded-lg">
-                <Image src={"/images/not2.png"} alt="img" width={20} height={20}/>
-              </div>
-              <div className="flex flex-col">
-                <p className="text-sm text-text">Funding request #{user?.invoices?.filter(invoice => invoice.status === 'PENDING')?.[0]?.description}</p>
-                <p className="text-xs text-text_light">{user?.funding_requests?.filter(request => request.status === 'PENDING')?.[0]?.requested_amount}</p>
-              </div>
-            </div>
-          </div>
-        </>
-      </Container>
-    </main>
-  );
-}
+        </div>
+        <Image
+          src="/images/rb_89591.png"
+          alt="Dashboard background"
+          width={1200}
+          height={300}
+          className="w-full h-auto object-cover opacity-45"
+        />
+      </div>
 
-export default Dashboard;
+      <h2 className="text-xl font-bold mb-4">Quick Links</h2>
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
+        {quickLinks.map((link, index) => (
+          <Button
+            key={index}
+            variant="outline"
+            className="justify-start h-auto py-4 px-6"
+            onClick={() => router.push(link.href)}
+          >
+            {link.icon}
+            <span className="ml-2">{link.title}</span>
+          </Button>
+        ))}
+      </div>
+
+      <h2 className="text-xl font-bold mb-4">Summary</h2>
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+        {summaryData.map((item, index) => (
+          <Card key={index}>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">{item.title}</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{item.value}</div>
+              <p className={`text-xs ${item.changeColor}`}>{item.change}</p>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+
+      <h2 className="text-xl font-bold mb-4">Notifications</h2>
+      <div className="space-y-4">
+        <div className="flex items-center space-x-4">
+          <div className="w-12 h-12 rounded-lg overflow-hidden">
+            <Image src="/images/not1.png" alt="Invoice notification" width={48} height={48} />
+          </div>
+          <div>
+            <p className="font-medium">Invoice 123 from Project Alpha</p>
+            <p className="text-sm text-gray-500">Due date: 5/12/24</p>
+          </div>
+        </div>
+        <div className="flex items-center space-x-4">
+          <div className="w-12 h-12 rounded-lg overflow-hidden">
+            <Image src="/images/not2.png" alt="Funding request notification" width={48} height={48} />
+          </div>
+          <div>
+            <p className="font-medium">Funding request #456</p>
+            <p className="text-sm text-gray-500">Approved for $3,000</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}

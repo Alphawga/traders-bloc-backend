@@ -1,8 +1,9 @@
 import prisma from '@/lib/prisma';
+import { NotificationType } from '@prisma/client';
 import { Session } from 'next-auth';
 
 
-export async function logAdminActivity(session: Session, action: string): Promise<void> {
+export async function logAdminActivity(session: Session, action: string, type:NotificationType ): Promise<void> {
   if (!session || !session.user) {
     throw new Error('Invalid session or unauthorized user');
   }
@@ -11,7 +12,8 @@ export async function logAdminActivity(session: Session, action: string): Promis
     await prisma.activityLog.create({
       data: {
         action,
-        admin_id: session.user.id,
+        type,
+        admin_id: session.user.id ??"",
       },
     });
   } catch (error) {

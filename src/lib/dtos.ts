@@ -95,3 +95,12 @@ export const fundingRequestSchema = z.object({
   your_contribution: z.number().min(0, "Your contribution must be non-negative"),
 });
 
+
+
+export const adminUpdateSchema = z.object({
+  id: z.string().uuid(),
+  email: z.string().email(),
+  name: z.string().min(1, "Name is required"),
+  current_password: z.string().min(8).optional(),
+  new_password: z.string().min(8).optional(),
+});

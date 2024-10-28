@@ -1,85 +1,198 @@
-import React from "react";
-import MainHeader from "../components/headers/mainHeader.tsx";
-import Container from "../components/container.tsx";
-import Subtext from "../components/subtext.tsx";
-// @ts-ignore
-import pp from "../assets/images/pp.png";
-import Button from "../components/form/button.tsx";
-import Input from "../components/form/input.tsx";
+"use client";
 
-function Profile() {
+import { zodResolver } from "@hookform/resolvers/zod";
+import { useForm } from "react-hook-form";
+import * as z from "zod";
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import { trpc } from "@/app/_providers/trpc-provider";
+import { toast } from "@/hooks/use-toast";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import {
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+} from "@/components/ui/tabs";
+import { useEffect } from "react";
+import { adminUpdateSchema } from "@/lib/dtos";
+
+
+
+
+type AdminUpdateSchema = z.infer<typeof adminUpdateSchema>;
+
+function AdminProfile() {
+  const { data: admin, isLoading } = trpc.getAdminProfile.useQuery();
+
+  const form = useForm<AdminUpdateSchema>({
+    resolver: zodResolver(adminUpdateSchema),
+    defaultValues: {
+      id: "",
+      email: "",
+      name: "",
+      current_password: "",
+      new_password: "",
+    },
+  });
+
+  useEffect(() => {
+    if (admin) {
+      form.reset({
+        id: admin.id,
+        email: admin.email,
+        name: admin.name,
+      });
+    }
+  }, [admin, form]);
+
+  const updateAdminMutation = trpc.updateAdminData.useMutation({
+    onSuccess: () => {
+      toast({
+        title: "Admin profile updated successfully",
+      });
+    },
+    onError: () => {
+      toast({
+        title: "Failed to update admin profile",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const onSubmit = async (values: AdminUpdateSchema) => {
+    try {
+      await updateAdminMutation.mutateAsync(values);
+    } catch (error) {
+      console.error("Failed to update admin profile:", error);
+    }
+  };
+
+  if (isLoading) {
+    return <div>Loading...</div>;
+  }
+
   return (
     <main>
-      <MainHeader />
-      <Container>
-        <>
-          <h1 className="text-3xl lg:text-4xl font-extrabold lg:my-6">
-            Profile & Permissions{" "}
-          </h1>
-          <Subtext text="Manage your personal information, security settings, and permissions." />
-          <div className="flex flex-col gap-4 items-end lg:flex-row my-6">
-            <div className="w-[50%] h-[300px] overflow-hidden rounded-lg">
-              <img
-                src={pp}
-                alt="profile-image"
-                className="object-cover w-full h-full"
-              />
-            </div>
-            <div className="w-[50%] flex flex-col gap-2 py-4">
-              <p className="text-text_light">Personal Information</p>
-              <p className="font-bold text-2xl text-text">John Doe</p>
-              <div className=" flex flex-row justify-between items-center">
-                <p className="text-text_light">johndoe@gmail.com</p>
-                <div className="w-[20%]">
-                  <Button
-                    text="edit"
-                    className="!py-1 !bg-info"
-                    onClick={() => {}}
-                  />
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <h3 className="font-bold text-lg my-6">Change Password</h3>
-          <div className="w-[50%]">
-            <Input
-              label="Current Password"
-              placeholder="Enter  current password"
-              onChange={() => {}}
-            />
-            <Input
-              label="New Password"
-              placeholder="Enter new password"
-              onChange={() => {}}
-            />
-            <Input
-              label="Confirm New Password"
-              placeholder="Re-enter new password"
-              onChange={() => {}}
-            />
-            <Button text="update password" onClick={() => {}} />
-          </div>
-          <h3 className="font-bold text-lg my-6">Two-Factor Authentication</h3>
-          <Subtext text="Add an extra layer of security to your account by enabling two-factor authentication. When it's enabled, you'll need to provide a verification code in addition to your password when you sign in." />
-          <div className='border border-bg_light flex flex-row justify-between p-4 px-8 my-6 rounded-lg'>
-            <div className='flex flex-col w-[80%]'>
-            <p className='text-text font-bold'>Two-Factor Authentication</p>
-            <p className='text-text_light'>Disabled</p>
-            </div>
-            <div  className="w-[20%]">
-            <Button text="Enable" className='!bg-info' onClick={() => {}}/>
-</div>
-          </div>
-          <h3 className="font-bold text-lg my-6">Request Additional Permissions</h3>
-          <Subtext text="Request additional permissions to access more features on TradeCo." />
-          <div className="w-[20%] my-6">
-          <Button text="Request Permissions" color="primary" onClick={() => {}} />
-</div>
-        </>
-      </Container>
+      <section className="">
+        <Form {...form}>
+          <form onSubmit={form.handleSubmit(onSubmit)}>
+            <Tabs defaultValue="profile">
+              <TabsList className="grid w-full grid-cols-2">
+                <TabsTrigger value="profile">Your Profile</TabsTrigger>
+                <TabsTrigger value="password">Password</TabsTrigger>
+              </TabsList>
+              <TabsContent value="profile">
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Your Profile</CardTitle>
+                    <CardDescription>
+                      Make changes to your admin profile here.
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <FormField
+                      control={form.control}
+                      name="name"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Name</FormLabel>
+                          <FormControl>
+                            <Input placeholder="John Doe" {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name="email"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Email</FormLabel>
+                          <FormControl>
+                            <Input type="email" placeholder="john.doe@admin.com" {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                   
+                  </CardContent>
+                  <CardFooter>
+                    <Button
+                      type="submit"
+                      className="w-[20%]"
+                      disabled={updateAdminMutation.isLoading}
+                    >
+                      Save changes
+                    </Button>
+                  </CardFooter>
+                </Card>
+              </TabsContent>
+              <TabsContent value="password">
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Password</CardTitle>
+                    <CardDescription>
+                      Change your password here.
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div className="flex space-x-4">
+                      <FormField
+                        control={form.control}
+                        name="current_password"
+                        render={({ field }) => (
+                          <FormItem className="flex-1">
+                            <FormLabel>Current Password</FormLabel>
+                            <FormControl>
+                              <Input type="password" placeholder="********" {...field} />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      <FormField
+                        control={form.control}
+                        name="new_password"
+                        render={({ field }) => (
+                          <FormItem className="flex-1">
+                            <FormLabel>New Password</FormLabel>
+                            <FormControl>
+                              <Input type="password" placeholder="********" {...field} />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    </div>
+                  </CardContent>
+                  <CardFooter>
+                    <Button
+                      type="submit"
+                      className="w-[20%]"
+                      disabled={updateAdminMutation.isLoading}
+                    >
+                      Save changes
+                    </Button>
+                  </CardFooter>
+                </Card>
+              </TabsContent>
+            </Tabs>
+          </form>
+        </Form>
+      </section>
     </main>
   );
 }
 
-export default Profile;
+export default AdminProfile;
