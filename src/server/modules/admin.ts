@@ -62,7 +62,7 @@ export const getAllMilestones = adminProcedure
         { user: { first_name: { contains: search, mode: "insensitive" } } },
         { user: { last_name: { contains: search, mode: "insensitive" } } },
         { invoice: { invoice_number: { contains: search, mode: "insensitive" } } },
-        { bank_details: { contains: search, mode: "insensitive" } },
+        { bank_name: { contains: search, mode: "insensitive" } },
       ];
     }
 
@@ -259,6 +259,7 @@ export const updateMilestoneSatus = adminProcedure
   export const getAdminDashboardSummary = adminProcedure
   .query(async ({ ctx }) => {
     const adminId = ctx.session?.user?.id;
+
 
     if (!adminId) {
       throw new Error("Unauthorized: Admin ID is missing");
@@ -590,7 +591,6 @@ export const getAllInvoices = adminProcedure
     const {
       search,
       status,
-      milestone,
       page,
       limit,
       sortBy,
@@ -609,19 +609,14 @@ export const getAllInvoices = adminProcedure
       where.OR = [
         { user: { first_name: { contains: search, mode: "insensitive" } } },
         { user: { last_name: { contains: search, mode: "insensitive" } } },
-        { milestone: { description: { contains: search, mode: "insensitive" } } },
-        { milestone: { invoice: { invoice_number: { contains: search, mode: "insensitive" } } } },
+        { invoice: { description: { contains: search, mode: "insensitive" } } },
+       
       ];
     }
 
     // Status filter
     if (status) {
       where.status = status as ApprovalStatus;
-    }
-
-    // Milestone filter
-    if (milestone) {
-      where.milestone_id = milestone;
     }
 
     // Date range filter
@@ -657,8 +652,8 @@ export const getAllInvoices = adminProcedure
     const orderBy: Prisma.FundingRequestOrderByWithRelationInput = sortBy
       ? sortBy === "user"
         ? { user: { first_name: sortOrder } }
-        : sortBy === "milestone"
-        ? { milestone: { description: sortOrder } }
+        : sortBy === "invoice"
+        ? { invoice: { description: sortOrder } }
         : { [sortBy]: sortOrder }
       : { submission_date: "desc" };
 
@@ -666,13 +661,8 @@ export const getAllInvoices = adminProcedure
       where,
       include: {
         user: true,
-        milestone: {
-          include: {
-            invoice: true,
-          },
-        },
+        invoice: true,
         reviewed_by: true,
-        invoices: true,
       },
       skip,
       take: limit,

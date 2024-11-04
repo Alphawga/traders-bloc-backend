@@ -4,7 +4,7 @@ import { usePathname } from 'next/navigation'
 import Link from 'next/link'
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
-import { HomeIcon, FileTextIcon, CreditCardIcon, DollarSignIcon, BarChartIcon, UserIcon, SettingsIcon, LogOutIcon } from 'lucide-react'
+import { HomeIcon, FileTextIcon, BarChartIcon, UserIcon, LogOutIcon } from 'lucide-react'
 import { signOut } from 'next-auth/react'
 
 export function Sidebar({ className }: React.HTMLAttributes<HTMLDivElement>) {
@@ -31,22 +31,11 @@ export function Sidebar({ className }: React.HTMLAttributes<HTMLDivElement>) {
                 Invoices
               </Link>
             </Button>
-            <Button variant={pathname === '/milestone' ? 'secondary' : 'ghost'} className="w-full justify-start" asChild>
-              <Link href="/milestone">
-                <CreditCardIcon className="mr-2 h-4 w-4" />
-                Milestones
-              </Link>
-            </Button>
-            <Button variant={pathname === '/funding-request' ? 'secondary' : 'ghost'} className="w-full justify-start" asChild>
-              <Link href="/funding-request">
-                <DollarSignIcon className="mr-2 h-4 w-4" />
-                Funding Request
-              </Link>
-            </Button>
+      
             <Button variant={pathname === '/reports' ? 'secondary' : 'ghost'} className="w-full justify-start" asChild>
               <Link href="/reports">
                 <BarChartIcon className="mr-2 h-4 w-4" />
-                Reports
+                Reports 
               </Link>
             </Button>
           </div>
@@ -60,12 +49,12 @@ export function Sidebar({ className }: React.HTMLAttributes<HTMLDivElement>) {
                 Profile
               </Link>
             </Button>
-            <Button variant={pathname === '/settings' ? 'secondary' : 'ghost'} className="w-full justify-start" asChild>
+            {/* <Button variant={pathname === '/settings' ? 'secondary' : 'ghost'} className="w-full justify-start" asChild>
               <Link href="/settings">
                 <SettingsIcon className="mr-2 h-4 w-4" />
                 Settings
               </Link>
-            </Button>
+            </Button> */}
             <Button variant={pathname === '/' ? 'secondary' : 'ghost'} className="w-full justify-start" onClick={()=>signOut()} asChild>
               <Link href="/">
                 <LogOutIcon className="mr-2 h-4 w-4" />

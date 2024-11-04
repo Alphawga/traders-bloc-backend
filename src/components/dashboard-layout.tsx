@@ -78,10 +78,18 @@ export function Sidebar({ className }: React.HTMLAttributes<HTMLDivElement>) {
 
 export function Header() {
     const pathname = usePathname()
+    const segments = pathname.split('/').filter(Boolean);
+const title = segments.length === 1 
+  ? segments[0] 
+  : segments.length >= 3 
+    ? segments[1] 
+    : '';
+
+const displayTitle = title.charAt(0).toUpperCase() + title.slice(1);
   return (
     <header className="flex items-center justify-between px-6 py-4 border-b">
       <h1 className="text-2xl font-semibold">
-        {pathname.split('/').filter(Boolean).map(segment => segment.charAt(0).toUpperCase() + segment.slice(1)).join(' ')}
+      {displayTitle}
       </h1>
       <div className="flex items-center space-x-4">
         <div className="relative">

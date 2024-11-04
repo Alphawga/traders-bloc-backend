@@ -237,7 +237,6 @@ function MilestoneReview() {
                   <TableCell>{milestone.invoice.invoice_number}</TableCell>
                   <TableCell>{milestone.user.first_name} {milestone.user.last_name}</TableCell>
                   <TableCell>${milestone.payment_amount.toFixed(2)}</TableCell>
-                  <TableCell>${milestone.logistics_amount.toFixed(2)}</TableCell>
                   <TableCell className={getDueDateColor(new Date(milestone.due_date))}>
                     {format(new Date(milestone.due_date), 'MMM dd, yyyy')}
                   </TableCell>
@@ -265,8 +264,9 @@ function MilestoneReview() {
                             <p>Invoice Number: {milestone.invoice.invoice_number}</p>
                             <p>User: {milestone.user.first_name} {milestone.user.last_name}</p>
                             <p>Payment Amount: ${milestone.payment_amount.toFixed(2)}</p>
-                            <p>Logistics Amount: ${milestone.logistics_amount.toFixed(2)}</p>
-                            <p>Bank Details: {milestone.bank_details}</p>
+                        
+                            <p>Bank Details: <span className="block"> {milestone.bank_name}</span>
+                            <span className="block">{milestone.bank_account_no}</span></p>
                             <p>Due Date: {format(new Date(milestone.due_date), 'MMM dd, yyyy')}</p>
                             <p>Status: {milestone.status}</p>
                             {milestone.approved_at && (

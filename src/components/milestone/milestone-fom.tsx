@@ -20,10 +20,11 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { useState } from "react";
+import { ChangeEvent, useState } from "react";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent } from "@/components/ui/card";
+import Image from "next/image";
 
 type MilestoneFormValues = z.infer<typeof milestoneSchema>;
 
@@ -38,6 +39,7 @@ function MilestoneForm({ milestone, invoice, action }: MilestoneFormProps) {
   const { toast } = useToast();
   const isEditing = action === 'Edit';
   const [isOpen, setIsOpen] = useState(false);
+  const [previewUrl, setPreviewUrl] = useState<string | null>("");
   const utils = trpc.useUtils();
 
   const form = useForm<MilestoneFormValues>({ 
@@ -45,10 +47,10 @@ function MilestoneForm({ milestone, invoice, action }: MilestoneFormProps) {
     defaultValues: {
       description: milestone?.description || "",
       supporting_doc: milestone?.supporting_doc || "",
-      bank_details: milestone?.bank_details || "",
+      bank_account_no: milestone?.bank_account_no || "",
+      bank_name: milestone?.bank_name || "",
       due_date: milestone?.due_date || new Date(),
       payment_amount: milestone?.payment_amount || 0,
-      logistics_amount: milestone?.logistics_amount || 0,
       invoice_id: invoice?.id || "",
     },
   });
@@ -92,6 +94,15 @@ function MilestoneForm({ milestone, invoice, action }: MilestoneFormProps) {
     },
   });
 
+  const uploadImageMutation = trpc.uploadImage.useMutation({
+    onSuccess: (res) => {
+      console.log("Upload successful:", res.url);
+    },
+    onError: (error) => {
+      console.error("Error uploading to Cloudinary:", error);
+    },
+  });
+
   const onSubmit = (data: MilestoneFormValues) => {
     if (isEditing) {
       updateMilestone.mutate({ ...data, id: milestone?.id || "", invoice_id: invoice?.id || "" });
@@ -124,6 +135,29 @@ function MilestoneForm({ milestone, invoice, action }: MilestoneFormProps) {
       deleteMilestone.mutate({ milestone_id: milestone.id });
     }
   };
+
+  const handleFileChange = async (e: ChangeEvent<HTMLInputElement>) => {
+    const file = e.target?.files?.[0];
+    if (file) {
+      try {
+        const base64File = await new Promise<string>((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onloadend = () => resolve(reader.result as string);
+          reader.onerror = reject;
+          reader.readAsDataURL(file);
+        });
+
+        const response = await uploadImageMutation.mutateAsync({ file: base64File });
+        if (response.url) {
+          console.log("Image uploaded", response.url)
+          form.setValue("supporting_doc", response.url);
+          setPreviewUrl(response.url);
+        }
+      } catch (error) {
+        console.error("Error in file upload:", error);
+      }
+    }
+  }
 
   if(action === "Delete"){
     return (
@@ -163,6 +197,19 @@ function MilestoneForm({ milestone, invoice, action }: MilestoneFormProps) {
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
             <Card>
               <CardContent className="grid gap-4 pt-4">
+              <FormField
+                control={form.control}
+                name="title"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Milestone Title</FormLabel>
+                    <FormControl>
+                      <Input {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
                 <FormField
                   control={form.control}
                   name="description"
@@ -176,96 +223,97 @@ function MilestoneForm({ milestone, invoice, action }: MilestoneFormProps) {
                     </FormItem>
                   )}
                 />
+           <FormField
+                control={form.control}
+                name="bank_name"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Bank Name</FormLabel>
+                    <FormControl>
+                      <Input {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+           
+                            <FormField
+                control={form.control}
+                name="bank_account_no"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Bank Account No</FormLabel>
+                    <FormControl>
+                      <Input {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+                 <FormField
+                control={form.control}
+                name="due_date"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Due Date</FormLabel>
+                    <FormControl>
+                      <Input
+                        type="date"
+                        {...field}
+                        value={field.value instanceof Date ? field.value.toISOString().split('T')[0] : ''}
+                        onChange={(e) => field.onChange(new Date(e.target.value))}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
                 <FormField
-                  control={form.control}
-                  name="supporting_doc"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Supporting Document</FormLabel>
-                      <FormControl>
-                        <Input placeholder="Document link or reference" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="bank_details"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Bank Details</FormLabel>
-                      <FormControl>
-                        <Textarea placeholder="Full bank account information" {...field} rows={3} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <FormField
-                    control={form.control}
-                    name="due_date"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Due Date</FormLabel>
-                        <FormControl>
-                          <Input 
-                            type="date" 
-                            {...field} 
-                            value={field.value ? new Date(field.value).toISOString().split('T')[0] : ''}
-                            onChange={(e) => {
-                              const date = e.target.value ? new Date(e.target.value) : null;
-                              field.onChange(date);
-                            }}
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
+                control={form.control}
+                name="supporting_doc"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Milestone Supporting document</FormLabel>
+                    <FormControl>
+                      <div className="flex items-center space-x-2">
+                        <Input
+                          type="file"
+                          {...field}
+                          value={undefined}
+                          onChange={handleFileChange}
+                          accept="image/*,.pdf"
+                          className="file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-violet-50 file:text-violet-700 hover:file:bg-violet-100"
+                        />
+                        {previewUrl && (
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => window.open(previewUrl, '_blank')}
+                          >
+                            View File
+                          </Button>
+                        )}
+                      </div>
+                    </FormControl>
+                    <FormMessage />
+                    {previewUrl && (
+                      <div className="mt-2">
+                        <p className="text-sm font-medium mb-1">Preview:</p>
+                        <Image
+                          src={previewUrl}
+                          alt="Invoice preview"
+                          width={200}
+                          height={200}
+                          objectFit="contain"
+                        />
+                      </div>
                     )}
-                  />
-             
-                </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <FormField
-                    control={form.control}
-                    name="payment_amount"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Payment Amount</FormLabel>
-                        <FormControl>
-                          <Input
-                            type="number"
-                            placeholder="0.00"
-                            {...field}
-                            onChange={(e) => field.onChange(parseFloat(e.target.value) || 0)}
-                            value={field.value || ''}
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <FormField
-                    control={form.control}
-                    name="logistics_amount"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Logistics Amount</FormLabel>
-                        <FormControl>
-                          <Input
-                            type="number"
-                            placeholder="0.00"
-                            {...field}
-                            onChange={(e) => field.onChange(parseFloat(e.target.value) || 0)}
-                            value={field.value || ''}
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                </div>
+                  </FormItem>
+                )}
+              />
+        
+      
               </CardContent>
             </Card>
           </form>

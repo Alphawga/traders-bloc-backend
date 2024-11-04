@@ -87,6 +87,7 @@ model Invoice {
   payment_terms      String
   due_date           DateTime
   vendor_id          String
+  interest_rate      Float?
   vendor             Vendor   @relation(fields: [vendor_id], references: [id])
   status             ApprovalStatus @default(PENDING)
   deleted_at         DateTime?
@@ -103,12 +104,13 @@ model Milestone {
   user_id            String
   admin_id           String?
   invoice_id         String
+  title              String
   description        String?
   supporting_doc     String?
-  bank_details       String
+  bank_name          String
+  bank_account_no    String
   due_date           DateTime
   status             ApprovalStatus
-  logistics_amount   Float
   payment_amount     Float
   approved_at         DateTime?
   paid_at             DateTime?
@@ -118,7 +120,6 @@ model Milestone {
   reviewed_by        Admin?   @relation(fields: [admin_id], references: [id])
   updated_at         DateTime @updatedAt
   deleted_at         DateTime?
-  funding_requests   FundingRequest[]
 }
 
 
@@ -126,7 +127,7 @@ model FundingRequest {
   id                 String   @id @default(uuid())
   user_id            String
   admin_id           String?
-  milestone_id       String
+  invoice_id       String
   requested_amount   Float
   your_contribution  Float
   status             ApprovalStatus
@@ -135,8 +136,7 @@ model FundingRequest {
   deleted_at         DateTime?
   user               User     @relation(fields: [user_id], references: [id])
   reviewed_by        Admin?   @relation(fields: [admin_id], references: [id])
-  invoices           Invoice[]
-  milestone          Milestone @relation(fields: [milestone_id], references: [id])
+  invoice          Invoice @relation(fields: [invoice_id], references: [id])
 }
 
 model Notification {

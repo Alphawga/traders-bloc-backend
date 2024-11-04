@@ -22,6 +22,7 @@ import { MoreHorizontal } from "lucide-react";
 import InvoiceForm from "@/components/invoice/invoice-form";
 import { format } from "date-fns";
 import { trpc } from "@/app/_providers/trpc-provider";
+import Link from "next/link";
 
 export default function InvoiceList() {
 
@@ -31,6 +32,7 @@ const {data:invoices} = trpc.getUserInvoices.useQuery()
 
   return (
     <div className="w-full h-full">
+      <InvoiceForm action="Add" invoice={null} />
       <Table>
         <TableHeader>
           <TableRow>
@@ -83,6 +85,14 @@ const {data:invoices} = trpc.getUserInvoices.useQuery()
                       </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
+                      <DropdownMenuItem asChild>
+                       <Link href={"/invoices/milestones/" + invoice.id}>View Milestones</Link> 
+                      </DropdownMenuItem>  
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem asChild>
+                      <Link href={"/invoices/fund-requests/" + invoice.id}>View Fund Requests</Link> 
+                      </DropdownMenuItem>
+                      <DropdownMenuSeparator />
                       <DropdownMenuItem asChild>
                         <InvoiceForm invoice={invoice} action="Edit" />
                       </DropdownMenuItem>

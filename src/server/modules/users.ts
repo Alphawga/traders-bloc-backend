@@ -226,8 +226,8 @@ export const getUserData = publicProcedure
       const user = await prisma.user.findUnique({
         where: { id: userId },
         include: {
-          invoices: {include: {milestones:{include: {funding_requests: true}}}},
-          funding_requests: {include:{milestone: true}},
+          invoices: {include: {milestones: true,}},
+          funding_requests: true,
           milestones: true,
           kyc_documents: true,  
         },
@@ -258,20 +258,22 @@ export const createMilestone = publicProcedure
     try {
       const { description, 
         supporting_doc, 
-        bank_details, 
+        bank_account_no,
+        bank_name, 
         payment_amount, 
-        logistics_amount, 
         due_date, 
+        title,
         invoice_id } = input;
       const userId = ctx?.session?.user?.id ?? '';
 
       const newMilestone = await prisma.milestone.create({
         data: {
+          title,
           description,
           supporting_doc,
-          bank_details,
+          bank_account_no,
+          bank_name,
           payment_amount,
-          logistics_amount,
           due_date,
           status: 'PENDING',
           user: { connect: { id: userId } },
@@ -519,13 +521,13 @@ export const createFundingRequest = publicProcedure
   .input(fundingRequestSchema)
   .mutation(async ({ ctx, input }) => {
     try {
-      const { milestone_id, requested_amount, your_contribution } = input;
+      const { invoice_id, requested_amount, your_contribution } = input;
       const userId = ctx?.session?.user?.id ?? '';
 
       const newFundingRequest = await prisma.fundingRequest.create({
         data: {
           user_id: userId,
-          milestone_id,
+          invoice_id,
           requested_amount,
           your_contribution,
           status: 'PENDING',

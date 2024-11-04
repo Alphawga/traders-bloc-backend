@@ -83,14 +83,17 @@ CREATE TABLE "Invoice" (
 CREATE TABLE "Milestone" (
     "id" TEXT NOT NULL,
     "user_id" TEXT NOT NULL,
+    "admin_id" TEXT,
     "invoice_id" TEXT NOT NULL,
     "description" TEXT,
     "supporting_doc" TEXT,
-    "bank_details" TEXT NOT NULL,
+    "bank_name" TEXT NOT NULL,
+    "bank_account_no" TEXT NOT NULL,
     "due_date" TIMESTAMP(3) NOT NULL,
     "status" "ApprovalStatus" NOT NULL,
-    "logistics_amount" DOUBLE PRECISION NOT NULL,
     "payment_amount" DOUBLE PRECISION NOT NULL,
+    "approved_at" TIMESTAMP(3),
+    "paid_at" TIMESTAMP(3),
     "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updated_at" TIMESTAMP(3) NOT NULL,
     "deleted_at" TIMESTAMP(3),
@@ -103,8 +106,9 @@ CREATE TABLE "FundingRequest" (
     "id" TEXT NOT NULL,
     "user_id" TEXT NOT NULL,
     "admin_id" TEXT,
-    "milestone_id" TEXT,
-    "amount" DOUBLE PRECISION NOT NULL,
+    "milestone_id" TEXT NOT NULL,
+    "requested_amount" DOUBLE PRECISION NOT NULL,
+    "your_contribution" DOUBLE PRECISION NOT NULL,
     "status" "ApprovalStatus" NOT NULL,
     "submission_date" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "review_date" TIMESTAMP(3),
@@ -116,8 +120,10 @@ CREATE TABLE "FundingRequest" (
 -- CreateTable
 CREATE TABLE "Notification" (
     "id" TEXT NOT NULL,
-    "user_id" TEXT NOT NULL,
+    "user_id" TEXT,
+    "admin_id" TEXT,
     "message" TEXT NOT NULL,
+    "link" TEXT,
     "type" "NotificationType" NOT NULL,
     "is_read" BOOLEAN NOT NULL DEFAULT false,
     "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -140,7 +146,9 @@ CREATE TABLE "ActivityLog" (
     "id" TEXT NOT NULL,
     "action" TEXT NOT NULL,
     "admin_id" TEXT NOT NULL,
-    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "type" "NotificationType" NOT NULL,
+    "link" TEXT,
+    "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "deleted_at" TIMESTAMP(3),
 
     CONSTRAINT "ActivityLog_pkey" PRIMARY KEY ("id")
@@ -183,6 +191,9 @@ CREATE UNIQUE INDEX "User_email_key" ON "User"("email");
 CREATE UNIQUE INDEX "Admin_email_key" ON "Admin"("email");
 
 -- CreateIndex
+CREATE UNIQUE INDEX "KYCDocument_user_id_document_type_key" ON "KYCDocument"("user_id", "document_type");
+
+-- CreateIndex
 CREATE UNIQUE INDEX "Vendor_email_key" ON "Vendor"("email");
 
 -- CreateIndex
@@ -219,16 +230,22 @@ ALTER TABLE "Milestone" ADD CONSTRAINT "Milestone_user_id_fkey" FOREIGN KEY ("us
 ALTER TABLE "Milestone" ADD CONSTRAINT "Milestone_invoice_id_fkey" FOREIGN KEY ("invoice_id") REFERENCES "Invoice"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
+ALTER TABLE "Milestone" ADD CONSTRAINT "Milestone_admin_id_fkey" FOREIGN KEY ("admin_id") REFERENCES "Admin"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
 ALTER TABLE "FundingRequest" ADD CONSTRAINT "FundingRequest_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "User"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "FundingRequest" ADD CONSTRAINT "FundingRequest_admin_id_fkey" FOREIGN KEY ("admin_id") REFERENCES "Admin"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "FundingRequest" ADD CONSTRAINT "FundingRequest_milestone_id_fkey" FOREIGN KEY ("milestone_id") REFERENCES "Milestone"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+ALTER TABLE "FundingRequest" ADD CONSTRAINT "FundingRequest_milestone_id_fkey" FOREIGN KEY ("milestone_id") REFERENCES "Milestone"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "Notification" ADD CONSTRAINT "Notification_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "User"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE "Notification" ADD CONSTRAINT "Notification_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "User"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "Notification" ADD CONSTRAINT "Notification_admin_id_fkey" FOREIGN KEY ("admin_id") REFERENCES "Admin"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "ActivityLog" ADD CONSTRAINT "ActivityLog_admin_id_fkey" FOREIGN KEY ("admin_id") REFERENCES "Admin"("id") ON DELETE RESTRICT ON UPDATE CASCADE;

@@ -55,10 +55,11 @@ export const milestoneSchema = z.object({
   id: z.string().optional(),
   description: z.string().min(1, "Description is required"),
   supporting_doc: z.string().min(1, "Supporting document is required"),
-  bank_details: z.string().min(1, "Bank details are required"),
+  bank_name: z.string().min(1, "Bank details are required"),
+  bank_account_no: z.string().min(1, "Bank details are required"),
   due_date: z.date(),
+  title: z.string().min(1,"Title is required"),
   payment_amount: z.number().min(0, "Payment amount must be non-negative"),
-  logistics_amount: z.number().min(0, "Logistics amount must be non-negative"),
   invoice_id: z.string(),
 });
 
@@ -90,7 +91,7 @@ export const milestoneUpdateSchema = z.object({
 });
 
 export const fundingRequestSchema = z.object({
-  milestone_id: z.string(),
+  invoice_id: z.string(),
   requested_amount: z.number().min(0, "Requested amount must be non-negative"),
   your_contribution: z.number().min(0, "Your contribution must be non-negative"),
 });

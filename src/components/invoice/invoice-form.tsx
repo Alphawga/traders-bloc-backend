@@ -78,6 +78,7 @@ function InvoiceForm({ invoice, action }: InvoiceFormProps) {
       });
       setIsOpen(false);
       utils.getUserData.invalidate();
+      utils.getUserInvoices.invalidate();
     },
     onError: (error) => {
       toast({
@@ -99,6 +100,7 @@ function InvoiceForm({ invoice, action }: InvoiceFormProps) {
       });
       setIsOpen(false);
       utils.getUserData.invalidate();
+      utils.getUserInvoices.invalidate();
     },
     onError: (error) => {
       toast({
@@ -157,7 +159,8 @@ function InvoiceForm({ invoice, action }: InvoiceFormProps) {
       });
       setIsOpen(false);
       router.push("/invoices");
-      utils.getUserData.invalidate();
+        utils.getUserData.invalidate();
+      utils.getUserInvoices.invalidate();
     },
     onError: (error) => {
       toast({
@@ -177,7 +180,7 @@ function InvoiceForm({ invoice, action }: InvoiceFormProps) {
     return (
       <AlertDialog open={isOpen} onOpenChange={setIsOpen}>
         <AlertDialogTrigger asChild>
-          <Button variant="destructive">Delete Invoice</Button>
+         Delete Invoice
         </AlertDialogTrigger>
         <AlertDialogContent>
           <AlertDialogHeader>
@@ -198,7 +201,7 @@ function InvoiceForm({ invoice, action }: InvoiceFormProps) {
   return (
     <Dialog open={isOpen} onOpenChange={setIsOpen}>
       <DialogTrigger asChild>
-        <Button variant="outline">{isEditing ? "Edit Invoice" : "Add Invoice"}</Button>
+      <Button variant={"outline"}>{isEditing ? "Edit Invoice" : "Add Invoice"}</Button>  
       </DialogTrigger>
       <DialogContent className="sm:max-w-[425px] md:max-w-[600px] lg:max-w-[800px] max-h-[90vh] overflow-hidden flex flex-col">
         <DialogHeader>

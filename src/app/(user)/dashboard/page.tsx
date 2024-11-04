@@ -5,8 +5,9 @@ import { useRouter } from 'next/navigation'
 import Image from 'next/image'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { ArrowRight, Clock, DollarSign } from 'lucide-react'
+import { ArrowRight } from 'lucide-react'
 import useUserStore from '@/store/user-store'
+import Link from 'next/link'
 
 export default function Dashboard() {
   const router = useRouter()
@@ -22,8 +23,6 @@ export default function Dashboard() {
 
   const quickLinks = [
     { title: 'Submit an invoice', icon: <ArrowRight className="h-5 w-5" />, href: '/invoices' },
-    { title: 'Track milestones', icon: <Clock className="h-5 w-5" />, href: '/milestone' },
-    { title: 'Request funding', icon: <DollarSign className="h-5 w-5" />, href: '/funding-request' },
   ]
 
   const summaryData = [
@@ -45,9 +44,9 @@ export default function Dashboard() {
               <p>{greeting}, {user?.first_name}</p>
               <p className="text-gray-300">Have a good Day Ahead</p>
             </div>
-            <Button onClick={() => router.push('/invoices')} className="bg-white text-black hover:bg-gray-200">
+            <Link href={"/invoices"} className="bg-white text-black hover:bg-gray-200 p-2 z-50 rounded-sm">
               Submit Invoice
-            </Button>
+            </Link>
           </div>
         </div>
         <Image

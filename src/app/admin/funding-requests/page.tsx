@@ -159,7 +159,7 @@ function FundingRequestReview() {
             <TableRow>
               <TableHead>User</TableHead>
               <TableHead>Invoice Number</TableHead>
-              <TableHead>Milestone</TableHead>
+              <TableHead>Invoice Description</TableHead>
               <TableHead>Requested Amount</TableHead>
               <TableHead>Your Contribution</TableHead>
               <TableHead>Submission Date</TableHead>
@@ -176,8 +176,8 @@ function FundingRequestReview() {
               fundingRequestData?.data.map((request) => (
                 <TableRow key={request.id}>
                   <TableCell>{request.user.first_name} {request.user.last_name}</TableCell>
-                  <TableCell>{request.milestone.invoice.invoice_number}</TableCell>
-                  <TableCell>{request.milestone.description}</TableCell>
+                  <TableCell>{request.invoice.invoice_number}</TableCell>
+                  <TableCell>{request.invoice.description}</TableCell>
                   <TableCell>${request.requested_amount.toFixed(2)}</TableCell>
                   <TableCell>${request.your_contribution.toFixed(2)}</TableCell>
                   <TableCell>{format(new Date(request.submission_date), 'MMM dd, yyyy')}</TableCell>
@@ -195,14 +195,14 @@ function FundingRequestReview() {
                         <DialogHeader>
                           <DialogTitle>Funding Request Details</DialogTitle>
                           <DialogDescription>
-                            Review the funding request for Milestone ID: {request.milestone.description}
+                            Review the funding request for Milestone ID: {request.invoice.invoice_number}
                           </DialogDescription>
                         </DialogHeader>
                         <div className="grid grid-cols-2 gap-4">
                           <div>
                             <h3 className="font-semibold mb-2">Request Information</h3>
                             <p>User: {request.user.first_name} {request.user.last_name}</p>
-                            <p>Milestone ID: {request.milestone.description}</p>
+                            <p>Milestone ID: {request.invoice.description}</p>
                             <p>Requested Amount: ${request.requested_amount.toFixed(2)}</p>
                             <p>Your Contribution: ${request.your_contribution.toFixed(2)}</p>
                             <p>Submission Date: {format(new Date(request.submission_date), 'MMM dd, yyyy HH:mm:ss')}</p>
@@ -211,18 +211,7 @@ function FundingRequestReview() {
                               <p>Review Date: {format(new Date(request.review_date), 'MMM dd, yyyy HH:mm:ss')}</p>
                             )}
                           </div>
-                          <div>
-                            <h3 className="font-semibold mb-2">Related Invoices</h3>
-                            {request.milestone.invoice ? (
-                              <ul className="list-disc pl-5">
-                             
-                                  <li>Invoice #{request.milestone.invoice.invoice_number}</li>
-                              
-                              </ul>
-                            ) : (
-                              <p>No related invoices</p>
-                            )}
-                          </div>
+                       
                         </div>
                         <DialogFooter>
                           <Button variant="outline" onClick={() => handleApproveReject('REJECTED', request.id)} className="bg-red-500 text-white hover:bg-red-600">Reject</Button>

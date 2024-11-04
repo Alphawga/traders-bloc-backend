@@ -53,9 +53,8 @@ const ViewMilestone: React.FC<ViewMilestoneProps> = ({ milestone, index }) => {
             <h3 className="text-lg font-semibold mb-4">Financial Details</h3>
             <div className="grid grid-cols-2 gap-4">
               <InfoItem label="Payment Amount" value={`$${milestone.payment_amount || 0}`} />
-              <InfoItem label="Logistics Amount" value={`$${milestone.logistics_amount || 0}`} />
               <InfoItem label="Due Date" value={formatDate(milestone.due_date)} />
-              <InfoItem label="Total Amount" value={`$${(milestone.payment_amount || 0) + (milestone.logistics_amount || 0)}`} />
+              <InfoItem label="Total Amount" value={`$${(milestone.payment_amount || 0)}`} />
             </div>
           </div>
         </div>
