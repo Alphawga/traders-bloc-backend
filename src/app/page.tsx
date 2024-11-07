@@ -48,14 +48,14 @@ export default function LoginPage() {
           title: "Login successful",
           variant: "default",
         });
-        router.push('/dashboard');  
+        router.push('/kyc');  
       } else {
        
         toast({
           title: "Login successful",
           variant: "default",
         });
-        router.push('/'); 
+        router.push('/kyc'); 
       }
     }
   };

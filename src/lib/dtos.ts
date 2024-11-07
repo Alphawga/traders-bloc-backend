@@ -2,6 +2,9 @@ import { ApprovalStatus } from '@prisma/client';
 import { z } from 'zod';
 
 export const userRegistrationSchema = z.object({
+  first_name: z.string(),
+  last_name: z.string(),
+  phone_number: z.string(),
   email: z.string().email('Invalid email address'),
   password: z.string()
     .min(6, 'Password must be at least 6 characters long')

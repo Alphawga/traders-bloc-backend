@@ -97,12 +97,7 @@ function Profile() {
               </TabsList>
               <TabsContent value="profile">
                 <Card>
-                  <CardHeader>
-                    <CardTitle>Your Profile</CardTitle>
-                    <CardDescription>
-                      Make changes to your personal information here.
-                    </CardDescription>
-                  </CardHeader>
+
                   <CardContent className="space-y-4">
                     <div className="flex space-x-4">
                       <FormField

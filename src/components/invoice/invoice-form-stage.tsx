@@ -1,59 +1,40 @@
-"use client";
+'use client'
 
-import { useRouter } from "next/navigation";
-import { zodResolver } from "@hookform/resolvers/zod";
-import { useForm } from "react-hook-form";
-import { z } from "zod";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
-import { Checkbox } from "@/components/ui/checkbox";
+import { zodResolver } from "@hookform/resolvers/zod"
+import { useForm } from "react-hook-form"
+import { Input } from "@/components/ui/input"
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form"
+import { Button } from "@/components/ui/button"
+import { Checkbox } from "@/components/ui/checkbox"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { trpc } from "@/app/_providers/trpc-provider";
-import { useToast } from "@/hooks/use-toast";
-import { Invoice } from "@prisma/client"; 
-import { invoiceSchema } from "@/lib/dtos";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
-import { ChangeEvent, useState } from "react";
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
-import Image from 'next/image';
 import { Calendar } from "@/components/ui/calendar"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { CalendarIcon } from "lucide-react"
 import { format } from "date-fns"
 import { cn } from "@/lib/utils"
-import { Textarea } from "../ui/textarea";
+import { Textarea } from "@/components/ui/textarea"
+import { trpc } from "@/app/_providers/trpc-provider"
+import { useToast } from "@/hooks/use-toast"
+import { Invoice } from "@prisma/client"
+import { invoiceSchema } from "@/lib/dtos"
+import { ChangeEvent, useState } from "react"
+import Image from 'next/image'
+import { z } from "zod"
 
+type InvoiceFormValues = z.infer<typeof invoiceSchema>
 
-
-
-type InvoiceFormValues = z.infer<typeof invoiceSchema>;
-
-interface InvoiceFormProps {
-  invoice: Invoice | null;
-  action: 'Add' | 'Edit' | 'Delete';
+interface InvoiceFormStageProps {
+  invoice: Invoice | null
+  disabled?: boolean
+  onSuccess: (data: Invoice) => void
 }
 
-function InvoiceForm({ invoice, action }: InvoiceFormProps) {
-  const router = useRouter();
-  const { toast } = useToast();
-  const isEditing = action === 'Edit';
-  const [isOpen, setIsOpen] = useState(false);
-  const utils = trpc.useUtils();
-  const [previewUrl, setPreviewUrl] = useState<string | null>(invoice?.invoice_file || null);
+export function InvoiceFormStage({ invoice, disabled, onSuccess }: InvoiceFormStageProps) {
+  const { toast } = useToast()
+  const utils = trpc.useUtils()
+  const [previewUrl, setPreviewUrl] = useState<string | null>(invoice?.invoice_file || null)
 
-
-
-
-  const form = useForm<InvoiceFormValues>({ 
+  const form = useForm<InvoiceFormValues>({
     resolver: zodResolver(invoiceSchema),
     defaultValues: {
       invoice_number: invoice?.invoice_number || "",
@@ -67,182 +48,98 @@ function InvoiceForm({ invoice, action }: InvoiceFormProps) {
       terms_agreed: false,
       vendor_id: invoice?.vendor_id || "",
     },
-  });
+  })
 
+  const vendors = trpc.getAllVendor.useQuery()
+
+  const addInvoice = trpc.createInvoice.useMutation({
+    onSuccess: (data) => {
+      toast({
+        title: "Success",
+        description: "Invoice submitted successfully"
+      })
+      utils.getUserData.invalidate()
+      utils.getUserInvoices.invalidate()
+      onSuccess(data)
+    },
+    onError: (error) => {
+      toast({
+        title: "Error",
+        variant: "destructive",
+        description: error.message
+      })
+    },
+  })
+
+  const uploadImageMutation = trpc.uploadImage.useMutation({
+    onSuccess: (res) => {
+      console.log("Upload successful:", res.url)
+    },
+    onError: (error) => {
+      console.error("Error uploading to Cloudinary:", error)
+    },
+  })
+
+  const handleFileChange = async (e: ChangeEvent<HTMLInputElement>) => {
+    const file = e.target?.files?.[0]
+    if (file) {
+      try {
+        const base64File = await new Promise<string>((resolve, reject) => {
+          const reader = new FileReader()
+          reader.onloadend = () => resolve(reader.result as string)
+          reader.onerror = reject
+          reader.readAsDataURL(file)
+        })
+  
+        const response = await uploadImageMutation.mutateAsync({ file: base64File })
+        if (response.url) {
+          form.setValue("invoice_file", response.url)
+          setPreviewUrl(response.url)
+        }
+      } catch (error) {
+        console.error("Error in file upload:", error)
+      }
+    }
+  }
+
+  const onSubmit = (data: InvoiceFormValues) => {
+    addInvoice.mutate(data)
+  }
   const calculateTotal = (quantity: number, pricePerUnit: number) => {
     return quantity * pricePerUnit;
   };
 
-  const addInvoice = trpc.createInvoice.useMutation({
-    onSuccess: () => {
-      toast({
-        title: "Success",
-        variant: "default",
-        description: "Invoice submitted successfully"
-      });
-      setIsOpen(false);
-      utils.getUserData.invalidate();
-      utils.getUserInvoices.invalidate();
-    },
-    onError: (error) => {
-      toast({
-        title: "Error",
-        variant: "destructive",
-        description: error.message
-      });
-    },
-  });
-
-  const vendors = trpc.getAllVendor.useQuery();
-
-  const updateInvoice = trpc.updateInvoice.useMutation({
-    onSuccess: () => {
-      toast({
-        title: "Success",
-        variant: "default",
-        description: "Invoice updated successfully"
-      });
-      setIsOpen(false);
-      utils.getUserData.invalidate();
-      utils.getUserInvoices.invalidate();
-    },
-    onError: (error) => {
-      toast({
-        title: "Error",
-        variant: "destructive",
-        description: error.message
-      });
-    },
-  });
-  
-  const uploadImageMutation = trpc.uploadImage.useMutation({
-    onSuccess: (res) => {
-      console.log("Upload successful:", res.url);
-    },
-    onError: (error) => {
-      console.error("Error uploading to Cloudinary:", error);
-    },
-  });
-
-  const handleFileChange = async (e: ChangeEvent<HTMLInputElement>) => {
-    const file = e.target?.files?.[0];
-    if (file) {
-      
-      try {
-        const base64File = await new Promise<string>((resolve, reject) => {
-          const reader = new FileReader();
-          reader.onloadend = () => resolve(reader.result as string);
-          reader.onerror = reject;
-          reader.readAsDataURL(file); 
-        });
-  
-        const response = await uploadImageMutation.mutateAsync({ file: base64File });
-        if (response.url) {
-          console.log("Image uploaded", response.url)
-          form.setValue("invoice_file", response.url);
-          setPreviewUrl(response.url);
-        }
-      } catch (error) {
-        console.error("Error in file upload:", error);
-      }
-    }
-  }
-  const onSubmit = (data: InvoiceFormValues) => {
-    if (isEditing) {
-      updateInvoice.mutate({ ...data, invoice_id: invoice?.id || "" });
-    } else {
-      addInvoice.mutate(data);
-    }
-  };
-  const deleteInvoice = trpc.deleteInvoice.useMutation({
-    onSuccess: () => {
-      toast({
-        title: "Success",
-        variant: "default",
-        description: "Invoice deleted successfully"
-      });
-      setIsOpen(false);
-      router.push("/invoices");
-        utils.getUserData.invalidate();
-      utils.getUserInvoices.invalidate();
-    },
-    onError: (error) => {
-      toast({
-        title: "Error",
-        variant: "destructive",
-        description: error.message
-      });
-    },
-  });
-
-  const handleDelete = () => {
-    if (invoice?.id) {
-      deleteInvoice.mutate({ invoice_id: invoice.id });
-    }
-  };
-  if(action === "Delete"){
-    return (
-      <AlertDialog open={isOpen} onOpenChange={setIsOpen}>
-        <AlertDialogTrigger asChild>
-         Delete Invoice
-        </AlertDialogTrigger>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Are you sure you want to delete this invoice?</AlertDialogTitle>
-            <AlertDialogDescription>
-              This action cannot be undone.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDelete}>Delete</AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-    );
-  }
-
   return (
-    <Dialog open={isOpen} onOpenChange={setIsOpen}>
-      <DialogTrigger asChild>
-      <Button variant={"outline"}>{isEditing ? "Edit Invoice" : "Add Invoice"}</Button>  
-      </DialogTrigger>
-      <DialogContent className="sm:max-w-[425px] md:max-w-[600px] lg:max-w-[800px] max-h-[90vh] overflow-hidden flex flex-col">
-        <DialogHeader>
-          <DialogTitle>{isEditing ? "Edit Invoice" : "Add New Invoice"}</DialogTitle>
-          <DialogDescription>
-            {isEditing ? "Make changes to your invoice here." : "Fill in the details for the new invoice."}
-          </DialogDescription>
-        </DialogHeader>
-        <div className="flex-grow overflow-y-auto pr-4">
-          <Form {...form}>
-            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <FormField
-                  control={form.control}
-                  name="vendor_id"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Partner Company</FormLabel>
-                      <Select onValueChange={field.onChange} defaultValue={field.value}>
-                        <FormControl>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select a partner company" />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          {vendors.data?.map((vendor) => (
-                            <SelectItem key={vendor.id} value={vendor.id.toString()}>
-                              {vendor.name}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
+    <div className={cn("space-y-6", disabled && "opacity-50 pointer-events-none")}>
+      <Form {...form}>
+        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <FormField
+              control={form.control}
+              name="vendor_id"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Partner Company</FormLabel>
+                  <Select onValueChange={field.onChange} defaultValue={field.value}>
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select a partner company" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      {vendors.data?.map((vendor) => (
+                        <SelectItem key={vendor.id} value={vendor.id.toString()}>
+                          {vendor.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            
+            <FormField
                   control={form.control}
                   name="invoice_number"
                   render={({ field }) => (
@@ -270,8 +167,7 @@ function InvoiceForm({ invoice, action }: InvoiceFormProps) {
                   </FormItem>
                 )}
               />
-
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <FormField
                   control={form.control}
                   name="quantity"
@@ -338,6 +234,7 @@ function InvoiceForm({ invoice, action }: InvoiceFormProps) {
                 />
               </div>
 
+           
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <FormField
                   control={form.control}
@@ -468,17 +365,19 @@ function InvoiceForm({ invoice, action }: InvoiceFormProps) {
                   </FormItem>
                 )}
               />
-            </form>
-          </Form>
-        </div>
-        <DialogFooter className="mt-4">
-          <Button type="submit" onClick={form.handleSubmit(onSubmit)}>
-            {isEditing ? "Update Invoice" : "Submit Invoice"}
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
-  );
-}
 
-export default InvoiceForm;
+         
+
+          <div className="flex justify-end space-x-4">
+            <Button 
+              type="submit" 
+              disabled={!form.formState.isValid || addInvoice.isLoading}
+            >
+              Continue to Milestones
+            </Button>
+          </div>
+        </form>
+      </Form>
+    </div>
+  )
+} 

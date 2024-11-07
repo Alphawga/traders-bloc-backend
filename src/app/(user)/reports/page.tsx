@@ -29,10 +29,7 @@ function Transaction() {
   return (
     <div className="p-6 bg-white rounded-lg">
       <div className="flex justify-between items-center mb-4">
-        <div>
-          <h2 className="text-2xl font-semibold">Report</h2>
-          <p className="text-gray-500 text-sm">Invoice and funding request statistics.</p>
-        </div>
+  
         <Select defaultValue="today">
           <SelectTrigger className="w-[120px]">
             <SelectValue placeholder="Period" />

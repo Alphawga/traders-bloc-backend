@@ -22,7 +22,9 @@ export default function Dashboard() {
   }, [])
 
   const quickLinks = [
-    { title: 'Submit an invoice', icon: <ArrowRight className="h-5 w-5" />, href: '/invoices' },
+    { title: 'Submit an invoice', icon: <ArrowRight className="h-5 w-5" />, href: '/submit-invoice' },
+    {title: 'View invoices', icon: <ArrowRight className="h-5 w-5" />, href: '/invoices'},
+    {title: 'View Reports', icon: <ArrowRight className="h-5 w-5" />, href: '/reports'}
   ]
 
   const summaryData = [
@@ -33,18 +35,16 @@ export default function Dashboard() {
   ]
 
   return (
-    <div className="container mx-auto px-4 py-8">
-      
-      <div className="relative overflow-hidden rounded-lg mb-8">
-        
+    <div className="container mx-auto px-4 py-6 sm:py-8">
+      <div className="relative overflow-hidden rounded-lg mb-6 sm:mb-8">
         <div className="absolute inset-0 bg-black bg-opacity-90">
-          <div className="h-full flex justify-between items-center p-6">
-            <div className="text-white">
-              <h2 className="text-2xl font-bold mb-2">Welcome Back!</h2>
+          <div className="h-full flex flex-col sm:flex-row justify-between items-start sm:items-center p-4 sm:p-6">
+            <div className="text-white mb-4 sm:mb-0">
+              <h2 className="text-xl sm:text-2xl font-bold mb-2">Welcome Back!</h2>
               <p>{greeting}, {user?.first_name}</p>
               <p className="text-gray-300">Have a good Day Ahead</p>
             </div>
-            <Link href={"/invoices"} className="bg-white text-black hover:bg-gray-200 p-2 z-50 rounded-sm">
+            <Link href={"/submit-invoice"} className="bg-white text-black hover:bg-gray-200 p-2 z-50 rounded-sm text-sm sm:text-base">
               Submit Invoice
             </Link>
           </div>
@@ -58,13 +58,13 @@ export default function Dashboard() {
         />
       </div>
 
-      <h2 className="text-xl font-bold mb-4">Quick Links</h2>
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
+      <h2 className="text-lg sm:text-xl font-bold mb-3 sm:mb-4">Quick Links</h2>
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 sm:gap-4 mb-6 sm:mb-8">
         {quickLinks.map((link, index) => (
           <Button
             key={index}
             variant="outline"
-            className="justify-start h-auto py-4 px-6"
+            className="justify-start h-auto py-3 sm:py-4 px-4 sm:px-6 text-sm sm:text-base"
             onClick={() => router.push(link.href)}
           >
             {link.icon}
@@ -73,39 +73,39 @@ export default function Dashboard() {
         ))}
       </div>
 
-      <h2 className="text-xl font-bold mb-4">Summary</h2>
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+      <h2 className="text-lg sm:text-xl font-bold mb-3 sm:mb-4">Summary</h2>
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mb-6 sm:mb-8">
         {summaryData.map((item, index) => (
           <Card key={index}>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">{item.title}</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{item.value}</div>
+              <div className="text-xl sm:text-2xl font-bold">{item.value}</div>
               <p className={`text-xs ${item.changeColor}`}>{item.change}</p>
             </CardContent>
           </Card>
         ))}
       </div>
 
-      <h2 className="text-xl font-bold mb-4">Notifications</h2>
-      <div className="space-y-4">
-        <div className="flex items-center space-x-4">
-          <div className="w-12 h-12 rounded-lg overflow-hidden">
-            <Image src="/images/not1.png" alt="Invoice notification" width={48} height={48} />
+      <h2 className="text-lg sm:text-xl font-bold mb-3 sm:mb-4">Notifications</h2>
+      <div className="space-y-3 sm:space-y-4">
+        <div className="flex items-center space-x-3 sm:space-x-4">
+          <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-lg overflow-hidden flex-shrink-0">
+            <Image src="/images/not1.png" alt="Invoice notification" width={48} height={48} className="w-full h-full object-cover" />
           </div>
           <div>
-            <p className="font-medium">Invoice 123 from Project Alpha</p>
-            <p className="text-sm text-gray-500">Due date: 5/12/24</p>
+            <p className="font-medium text-sm sm:text-base">Invoice 123 from Project Alpha</p>
+            <p className="text-xs sm:text-sm text-gray-500">Due date: 5/12/24</p>
           </div>
         </div>
-        <div className="flex items-center space-x-4">
-          <div className="w-12 h-12 rounded-lg overflow-hidden">
-            <Image src="/images/not2.png" alt="Funding request notification" width={48} height={48} />
+        <div className="flex items-center space-x-3 sm:space-x-4">
+          <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-lg overflow-hidden flex-shrink-0">
+            <Image src="/images/not2.png" alt="Funding request notification" width={48} height={48} className="w-full h-full object-cover" />
           </div>
           <div>
-            <p className="font-medium">Funding request #456</p>
-            <p className="text-sm text-gray-500">Approved for $3,000</p>
+            <p className="font-medium text-sm sm:text-base">Funding request #456</p>
+            <p className="text-xs sm:text-sm text-gray-500">Approved for $3,000</p>
           </div>
         </div>
       </div>

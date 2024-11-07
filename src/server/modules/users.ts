@@ -3,32 +3,21 @@ import { publicProcedure } from '@/server/trpc';
 import prisma from '@/lib/prisma';
 import { TRPCError } from '@trpc/server';
 import bcrypt from 'bcrypt';
-import { fundingRequestSchema, invoiceSchema, milestoneSchema, userUpdateSchema } from '@/lib/dtos';
+import { fundingRequestSchema, invoiceSchema, milestoneSchema, userRegistrationSchema, userUpdateSchema } from '@/lib/dtos';
 import { v2 as cloudinary } from "cloudinary";
 import { Prisma } from '@prisma/client';
 
 
 
-const userRegistrationSchema = z.object({
-  first_name: z.string(),
-  last_name: z.string(),
-  phone_number: z.string(),
-  email: z.string().email(),
-  password: z.string().min(8),
-  company_name: z.string(),
-  tax_id: z.string(),
-  industry: z.string(),
-});
 
 
 
 
 // KYC document schema
-const kycDocumentSchema = z.object({
+const kycDocumentSchema = z.array(z.object({
   document_type: z.string(),
   document_url: z.string().url(),
-
-});
+}));
 
 export const registerUser = publicProcedure
   .input(userRegistrationSchema)
@@ -82,37 +71,47 @@ export const registerUser = publicProcedure
 export const upsertKYCDocument = publicProcedure
   .input(kycDocumentSchema)
   .mutation(async ({ input, ctx }) => {
-    const { document_type, document_url,  } = input;
-    const userId = ctx?.session?.user?.id ?? '';
+    if (!ctx.session?.user?.id) {
+      throw new TRPCError({
+        code: 'UNAUTHORIZED',
+        message: 'You must be logged in to submit KYC documents',
+      });
+    }
+
+    const userId = ctx.session.user.id;
 
     try {
-      const newDocument = await prisma.kYCDocument.upsert({
-        where: {
-          user_document_type: {
-            user_id: userId,
-            document_type,
-          },
-        },
-        update: {
-          document_url,
-        },
-        create: {
-          user_id: userId,
-          document_type,
-          document_url,
-          status: 'PENDING',
-        },
-      });
+      // Process all documents in a transaction
+      const result = await prisma.$transaction(
+        input.map((doc) =>
+          prisma.kYCDocument.upsert({
+            where: {
+              user_document_type: {
+                user_id: userId,
+                document_type: doc.document_type,
+              },
+            },
+            update: {
+              document_url: doc.document_url,
+              status: 'PENDING',
+            },
+            create: {
+              user_id: userId,
+              document_type: doc.document_type,
+              document_url: doc.document_url,
+              status: 'PENDING',
+            },
+          })
+        )
+      );
 
-      return newDocument;
+      return result;
     } catch (error) {
-      console.error('KYC document submission error:', error);
+      console.error('KYC documents submission error:', error);
       throw new TRPCError({
         code: 'INTERNAL_SERVER_ERROR',
-        message: 'Failed to submit KYC document',
+        message: 'Failed to submit KYC documents',
       });
-    } finally {
-      await prisma.$disconnect();
     }
   });
 
@@ -214,7 +213,6 @@ export const upsertKYCDocument = publicProcedure
     
 
  
-
 
 
 
