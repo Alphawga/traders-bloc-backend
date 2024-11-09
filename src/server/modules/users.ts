@@ -5,7 +5,9 @@ import { TRPCError } from '@trpc/server';
 import bcrypt from 'bcrypt';
 import { fundingRequestSchema, invoiceSchema, milestoneSchema, userRegistrationSchema, userUpdateSchema } from '@/lib/dtos';
 import { v2 as cloudinary } from "cloudinary";
-import { Prisma } from '@prisma/client';
+import { NotificationType, Prisma } from '@prisma/client';
+import { createNotification } from '@/lib/helper-function';
+
 
 
 
@@ -17,6 +19,8 @@ import { Prisma } from '@prisma/client';
 const kycDocumentSchema = z.array(z.object({
   document_type: z.string(),
   document_url: z.string().url(),
+  file_name: z.string().optional(),
+  status: z.enum(['PENDING', 'APPROVED', 'REJECTED', 'NOT_SUBMITTED']).default('PENDING')
 }));
 
 export const registerUser = publicProcedure
@@ -50,11 +54,16 @@ export const registerUser = publicProcedure
           industry,
         },
         select:{
+          id: true,
           first_name: true
         }
       });
 
-
+      await createNotification(
+        `New user ${first_name} ${last_name} has registered`,
+        NotificationType.SYSTEM_ALERT,
+        `/user/${newUser.id}`
+      )
       
       return newUser;
     } catch (error) {
@@ -81,7 +90,6 @@ export const upsertKYCDocument = publicProcedure
     const userId = ctx.session.user.id;
 
     try {
-      // Process all documents in a transaction
       const result = await prisma.$transaction(
         input.map((doc) =>
           prisma.kYCDocument.upsert({
@@ -93,12 +101,14 @@ export const upsertKYCDocument = publicProcedure
             },
             update: {
               document_url: doc.document_url,
+              file_name: doc.file_name,
               status: 'PENDING',
             },
             create: {
               user_id: userId,
               document_type: doc.document_type,
               document_url: doc.document_url,
+              file_name: doc.file_name,
               status: 'PENDING',
             },
           })
@@ -156,6 +166,12 @@ export const upsertKYCDocument = publicProcedure
             status: 'PENDING',
           },
         });
+
+        await createNotification(
+          `New invoice has been created`,
+          NotificationType.INVOICE_UPDATE,
+          `/invoices/${newInvoice.id}`
+        )
   
         return newInvoice;
       } catch (error) {
@@ -207,6 +223,11 @@ export const upsertKYCDocument = publicProcedure
 
         },
       });
+      await createNotification(
+        `Invoice has been updated`,
+        NotificationType.INVOICE_UPDATE,
+        `/invoices/${invoice.id}`
+      )
 
       return invoice;
     });
@@ -228,6 +249,7 @@ export const getUserData = publicProcedure
           funding_requests: true,
           milestones: true,
           kyc_documents: true,  
+          notifications: true
         },
       });
 
@@ -279,6 +301,12 @@ export const createMilestone = publicProcedure
         },
       });
 
+      await createNotification(
+        `New milestone has been created`,
+        NotificationType.MILESTONE_UPDATE,
+        `/milestone/${newMilestone.id}`
+      )
+
       return newMilestone;
     } catch (error) {
       console.error('Milestone creation error:', error);
@@ -300,6 +328,12 @@ export const updateMilestone = publicProcedure
         where: { id },
         data,
       });
+
+      await createNotification(
+        `Milestone has been updated`,
+        NotificationType.MILESTONE_UPDATE,
+        `/milestone/${updatedMilestone.id}`
+      )
 
       return updatedMilestone;
     } catch (error) {
@@ -453,6 +487,12 @@ export const updateMilestone = publicProcedure
         },
       });
 
+      await createNotification(
+        `Invoice has been deleted`,
+        NotificationType.INVOICE_UPDATE,
+        `/invoices/${invoice_id}`
+      )
+
       return { success: true };
     } catch (error) {
       console.error('Delete invoice error:', error);
@@ -473,17 +513,25 @@ cloudinary.config({
   api_secret: process.env.CLOUDINARY_API_SECRET,
 });
 
-const uploadImageSchema = z.object({ file: z.string().min(1, "File is required") });
+const uploadImageSchema = z.object({ 
+  file: z.string().min(1, "File is required"),
+  fileName: z.string().optional()
+});
 
 
 export const uploadImage = publicProcedure
   .input(uploadImageSchema)
   .mutation(async (opts) => {
     try {
-  
-      const result = await cloudinary.uploader.upload(opts.input.file, { upload_preset: "traders-bloc" });
+      const result = await cloudinary.uploader.upload(opts.input.file, { 
+        upload_preset: "traders-bloc",
+        public_id: opts.input.fileName
+      });
 
-      return { url: result.secure_url }; 
+      return { 
+        url: result.secure_url,
+        fileName: opts.input.fileName 
+      }; 
     } catch (error) {
       console.error("Error uploading to Cloudinary:", error);
       throw new Error("Internal server error");
@@ -502,6 +550,12 @@ export const uploadImage = publicProcedure
           deleted_at: new Date(),
         },
       });
+
+      await createNotification(
+        `Milestone has been deleted`,
+        NotificationType.MILESTONE_UPDATE,
+        `/milestone/${milestone_id}`
+      )
 
       return { success: true };
     } catch (error) {
@@ -532,6 +586,12 @@ export const createFundingRequest = publicProcedure
         },
       });
 
+      await createNotification(
+        `New funding request has been created`,
+        NotificationType.FUNDING_UPDATE,
+        `/funding-requests/${newFundingRequest.id}`
+      )
+
       return newFundingRequest;
     } catch (error) {
       console.error('Funding request creation error:', error);
@@ -552,3 +612,13 @@ export const createFundingRequest = publicProcedure
     })
     return invoices
   })
+
+export const updateNotification = publicProcedure
+  .input(z.object({notification_id: z.string(), is_read: z.boolean()}))
+  .mutation(async({input})=>{
+    const {notification_id, is_read} = input
+    await prisma.notification.update({
+      where: {id: notification_id}, data: {is_read}
+    })
+  })
+

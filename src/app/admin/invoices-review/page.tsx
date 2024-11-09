@@ -64,7 +64,7 @@ interface FilterState {
 function InvoiceReview() {
   const [filters, setFilters] = useState<FilterState>({
     search: "",
-    status: undefined,
+    status: "PENDING",
     vendor: undefined,
     page: 1,
     limit: 10,

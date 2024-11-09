@@ -1,4 +1,4 @@
-import { ApprovalStatus } from '@prisma/client';
+import { ApprovalStatus, NotificationType } from '@prisma/client';
 import { z } from 'zod';
 
 export const userRegistrationSchema = z.object({
@@ -107,4 +107,19 @@ export const adminUpdateSchema = z.object({
   name: z.string().min(1, "Name is required"),
   current_password: z.string().min(8).optional(),
   new_password: z.string().min(8).optional(),
+});
+
+export const notificationSchema = z.object({
+  message: z.string().min(1, "Message is required"),
+  type: z.enum([
+    NotificationType.INVOICE_STATUS_UPDATE, 
+    NotificationType.MILESTONE_STATUS_UPDATE, 
+    NotificationType.FUNDING_STATUS_UPDATE,
+    NotificationType.SYSTEM_ALERT,
+    NotificationType.KYC_UPDATE,
+    NotificationType.INVOICE_UPDATE,
+    NotificationType.MILESTONE_UPDATE,
+    NotificationType.FUNDING_UPDATE
+  ]),
+  link: z.string().optional(),
 });

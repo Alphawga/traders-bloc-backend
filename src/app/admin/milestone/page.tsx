@@ -63,7 +63,7 @@ interface FilterState {
 function MilestoneReview() {
   const [filters, setFilters] = useState<FilterState>({
     search: "",
-    status: undefined,
+    status: "PENDING",
     page: 1,
     limit: 10,
     sortBy: undefined,
@@ -72,6 +72,7 @@ function MilestoneReview() {
   });
 
   const [, setSelectedMilestone] = useState(null);
+  const [openDialog, setOpenDialog] = useState(false);
 
   const { data: milestoneData, isLoading, refetch } = trpc.getAllMilestones.useQuery(filters);
 
@@ -82,7 +83,8 @@ function MilestoneReview() {
       })
       refetch();
       setSelectedMilestone(null);
-    },
+      setOpenDialog(false);
+      },
     onError: () => {
       toast({
         description: "Failed to update Milestone status",
@@ -246,7 +248,7 @@ function MilestoneReview() {
                     </span>
                   </TableCell>
                   <TableCell>
-                    <Dialog>
+                    <Dialog open={openDialog} onOpenChange={setOpenDialog}>
                       <DialogTrigger asChild>
                         <Button variant="outline" size="sm" className="bg-black text-white hover:bg-gray-700">View</Button>
                       </DialogTrigger>

@@ -74,6 +74,7 @@ function InvoiceReview() {
   });
 
   const [, setSelectedInvoice] = useState(null);
+  const [openDialog, setOpenDialog] = useState(false);
 
   const { data: invoiceData, isLoading, refetch } = trpc.getAllInvoices.useQuery(filters);
 
@@ -84,6 +85,7 @@ function InvoiceReview() {
       })
       refetch();
       setSelectedInvoice(null);
+      setOpenDialog(false);
     },
     onError: () => {
       toast({
@@ -134,11 +136,11 @@ function InvoiceReview() {
     setFilters(prev => ({ ...prev, dueDateFilter: value, dueDateRange, page: 1 }));
   };
 
-  const handleApproveReject = (status: 'APPROVED' | 'REJECTED', id: string) => {
-    updateInvoiceStatus.mutate({ invoice_id: id, status });
+  const handleApproveReject = (status: "APPROVED" | "REJECTED", id: string) => {
+    updateInvoiceStatus.mutate({ status, invoice_id: id });
   };
 
-  const getStatusColor = (status: string) => {
+  const getStatusColor = (status: ApprovalStatus) => {
     switch (status) {
       case 'PENDING':
         return 'bg-yellow-100 text-yellow-800';
@@ -247,7 +249,7 @@ function InvoiceReview() {
                     </span>
                   </TableCell>
                   <TableCell>
-                    <Dialog>
+                    <Dialog open={openDialog} onOpenChange={setOpenDialog}>
                       <DialogTrigger asChild>
                         <Button variant="outline" size="sm" className="bg-black text-white hover:bg-gray-700">View</Button>
                       </DialogTrigger>
@@ -285,8 +287,8 @@ function InvoiceReview() {
                           </div>
                         </div>
                         <DialogFooter>
-                          <Button variant="outline" onClick={() => handleApproveReject('REJECTED', invoice.id)} className="bg-red-500 text-white hover:bg-red-600">Reject</Button>
-                          <Button onClick={() => handleApproveReject('APPROVED', invoice.id)} className="bg-green-500 text-white hover:bg-green-600">Approve</Button>
+                          <Button variant="outline" onClick={() => handleApproveReject(ApprovalStatus.REJECTED, invoice.id)} className="bg-red-500 text-white hover:bg-red-600">Reject</Button>
+                          <Button onClick={() => handleApproveReject(ApprovalStatus.APPROVED, invoice.id)} className="bg-green-500 text-white hover:bg-green-600">Approve</Button>
                         </DialogFooter>
                       </DialogContent>
                     </Dialog>

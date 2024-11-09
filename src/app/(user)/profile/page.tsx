@@ -24,6 +24,7 @@ import {
 } from "@/components/ui/tabs";
 import { userUpdateSchema } from "@/lib/dtos";
 import { useEffect } from "react";
+import KYB from "../kyc/page";
 
 
 
@@ -91,6 +92,7 @@ function Profile() {
             <Tabs defaultValue="profile">
               <TabsList className="grid w-full grid-cols-4">
                 <TabsTrigger value="profile">Your Profile</TabsTrigger>
+                <TabsTrigger value="kyc">KYC</TabsTrigger>
                 <TabsTrigger value="company">Company</TabsTrigger>
                 <TabsTrigger value="password">Password</TabsTrigger>
                 <TabsTrigger value="2fa">Two-Factor Auth</TabsTrigger>
@@ -166,6 +168,11 @@ function Profile() {
                     </Button>
                   </CardFooter>
                 </Card>
+              </TabsContent>
+              <TabsContent value="kyc">
+                <div className="flex justify-center items-center h-full">
+                  <KYB />
+                </div>
               </TabsContent>
               <TabsContent value="company">
                 <Card>

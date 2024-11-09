@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import Image from 'next/image'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { Clock, DollarSign, FileText, UserCheck } from 'lucide-react'
+import { Clock, DollarSign, FileText, Link, UserCheck } from 'lucide-react'
 import { trpc } from '@/app/_providers/trpc-provider'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 
@@ -95,6 +95,7 @@ export default function AdminDashboard() {
           <h2 className="text-xl font-bold mb-4">Notifications</h2>
           <div className="space-y-4">
             {dashboardSummary?.unreadNotifications.slice(0, 2).map((notification, index) => (
+              <Link href={notification.link ?? ""} key={index}>
               <div key={index} className="flex items-center space-x-4">
                 <div className="w-12 h-12 rounded-lg overflow-hidden">
                   <Image src={`/images/not${index + 1}.png`} alt={`Notification ${index + 1}`} width={48} height={48} />
@@ -102,9 +103,11 @@ export default function AdminDashboard() {
                 <div>
                   <p className="font-medium">{notification.type}</p>
                   <p className="text-sm text-gray-500">{notification.message}</p>
-                </div>
-              </div>
-            ))}
+                  <p className="text-sm text-gray-500">{notification.created_at.toLocaleString()}</p>
+                    </div>
+                  </div>
+                </Link>
+              ))}
           </div>
         </div>
 
@@ -127,10 +130,10 @@ export default function AdminDashboard() {
           <div className="space-y-2">
             {dashboardSummary?.recentActivity.map((activity, index) => (
               <div key={index} className="flex items-center space-x-2 bg-gray-100 p-2 rounded">
-                {activity.type === "FUNDING_UPDATE" && <DollarSign className="h-4 w-4" />}
-                {activity.type === "MILESTONE_UPDATE" && <Clock className="h-4 w-4" />}
-                {activity.type === "KYC_UPDATE" && <UserCheck className="h-4 w-4" />}
-                {activity.type === "INVOICE_UPDATE" && <FileText className="h-4 w-4" />}
+                {activity.type === "FUNDING_STATUS_UPDATE" && <DollarSign className="h-4 w-4" />}
+                {activity.type === "MILESTONE_STATUS_UPDATE" && <Clock className="h-4 w-4" />}
+                {activity.type === "KYC_STATUS_UPDATE" && <UserCheck className="h-4 w-4" />}
+                {activity.type === "INVOICE_STATUS_UPDATE" && <FileText className="h-4 w-4" />}
                 <p className="text-sm">{activity.action}</p>
               </div>
             ))}

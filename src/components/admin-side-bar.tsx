@@ -4,7 +4,7 @@ import { usePathname } from 'next/navigation'
 import Link from 'next/link'
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
-import { HomeIcon, FileTextIcon, CreditCardIcon, DollarSignIcon, BarChartIcon, UserIcon, SettingsIcon, LogOutIcon } from 'lucide-react'
+import { HomeIcon, FileTextIcon, CreditCardIcon, DollarSignIcon, BarChartIcon, UserIcon, LogOutIcon } from 'lucide-react'
 import { signOut } from 'next-auth/react'
 
 export function AdminSidebar({ className }: React.HTMLAttributes<HTMLDivElement>) {
@@ -64,12 +64,6 @@ export function AdminSidebar({ className }: React.HTMLAttributes<HTMLDivElement>
               <Link href="/admin/profile">
                 <UserIcon className="mr-2 h-4 w-4" />
                 Profile
-              </Link>
-            </Button>
-            <Button variant={pathname === '/admin/settings' ? 'secondary' : 'ghost'} className="w-full justify-start" asChild>
-              <Link href="/admin/settings">
-                <SettingsIcon className="mr-2 h-4 w-4" />
-                Settings
               </Link>
             </Button>
             <Button variant={pathname === '/' ? 'secondary' : 'ghost'} className="w-full justify-start" onClick={()=>signOut()} asChild>

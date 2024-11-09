@@ -1,247 +1,313 @@
-"use client";
-import { useRouter } from "next/navigation";
-import Image from 'next/image';
-import { useToast } from "@/hooks/use-toast";
-import useUserStore from "@/store/user-store";
-import { trpc } from "@/app/_providers/trpc-provider";
-import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
-import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
-import * as z from "zod";
+"use client"
+
+import { useRouter } from "next/navigation"
+import Image from 'next/image'
+import { useToast } from "@/hooks/use-toast"
+import useUserStore from "@/store/user-store"
+import { trpc } from "@/app/_providers/trpc-provider"
+import { Input } from "@/components/ui/input"
+import { Button } from "@/components/ui/button"
+import { useForm } from "react-hook-form"
+import { zodResolver } from "@hookform/resolvers/zod"
+import * as z from "zod"
 import {
   Form,
   FormControl,
   FormField,
   FormItem,
   FormLabel,
-} from "@/components/ui/form";
-import { Card, CardContent } from "@/components/ui/card";
-import { useEffect } from "react";
+  FormMessage,
+} from "@/components/ui/form"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { useEffect, useState } from "react"
+import { Progress } from "@/components/ui/progress"
+import { Badge } from "@/components/ui/badge"
+import { AlertCircle, CheckCircle2, Clock, Upload } from "lucide-react"
+
+const businessNameKYC = {
+  id: 'businessName',
+  label: 'Business Name',
+  description: 'Official business registration document',
+  maxSize: 10 * 1024 * 1024, // 10MB
+  acceptedFormats: ['.pdf', '.png', '.jpg', '.jpeg'],
+}
+
+const legalAddressKYC = {
+  id: 'legalAddress',
+  label: 'Legal Address',
+  description: 'Proof of business address',
+  maxSize: 10 * 1024 * 1024,
+  acceptedFormats: ['.pdf', '.png', '.jpg', '.jpeg'],
+}
+
+const registrationNumberKYC = {
+  id: 'registrationNumber',
+  label: 'Registration Number',
+  description: 'Business registration number document',
+  maxSize: 10 * 1024 * 1024,
+  acceptedFormats: ['.pdf', '.png', '.jpg', '.jpeg'],
+}
+
+const taxInformationKYC = {
+  id: 'taxInformation',
+  label: 'Tax Information',
+  description: 'Tax registration certificate',
+  maxSize: 10 * 1024 * 1024,
+  acceptedFormats: ['.pdf', '.png', '.jpg', '.jpeg'],
+}
+
+const incorporationDocumentsKYC = {
+  id: 'incorporationDocuments',
+  label: 'Incorporation Documents',
+  description: 'Certificate of incorporation',
+  maxSize: 10 * 1024 * 1024,
+  acceptedFormats: ['.pdf', '.png', '.jpg', '.jpeg'],
+}
 
 const requiredDocuments = [
-  {
-    id: 'businessName',
-    label: 'Business Name',
-    description: 'Official business registration document'
-  },
-  {
-    id: 'legalAddress',
-    label: 'Legal Address',
-    description: 'Proof of business address'
-  },
-  {
-    id: 'registrationNumber',
-    label: 'Registration Number',
-    description: 'Business registration number document'
-  },
-  {
-    id: 'taxInformation',
-    label: 'Tax Information',
-    description: 'Tax registration certificate'
-  },
-  {
-    id: 'incorporationDocuments',
-    label: 'Incorporation Documents',
-    description: 'Certificate of incorporation'
-  }
-] as const;
+  businessNameKYC,
+  legalAddressKYC,
+  registrationNumberKYC,
+  taxInformationKYC,
+  incorporationDocumentsKYC,
+]
 
-const kycDocumentSchema = z.array(z.object({
-  document_type: z.string(),
-  document_url: z.string().url(),
-  status: z.enum(['PENDING', 'APPROVED', 'REJECTED', 'NOT_SUBMITTED']).default('PENDING').optional()
-}));
+const kycDocumentSchema = z.object({
+  businessName: z.string().optional(),
+  legalAddress: z.string().optional(),
+  registrationNumber: z.string().optional(),
+  taxInformation: z.string().optional(),
+  incorporationDocuments: z.string().optional(),
+})
 
-type FormValues = z.infer<typeof kycDocumentSchema>;
+type FormValues = z.infer<typeof kycDocumentSchema>
 
-function KYB() {
-  const router = useRouter();
-  const { user } = useUserStore();
-  const { toast } = useToast();
+export default function KYB() {
+  const router = useRouter()
+  const { user } = useUserStore()
+  const { toast } = useToast()
+  const [progress, setProgress] = useState(0)
   
   const form = useForm<FormValues>({
     resolver: zodResolver(kycDocumentSchema),
-    defaultValues: requiredDocuments.map(doc => ({
-      document_type: doc.id,
-      document_url: user?.kyc_documents?.find(userDoc => userDoc.document_type === doc.id)?.document_url ?? '',
-      status: user?.kyc_documents?.find(userDoc => userDoc.document_type === doc.id)?.status || 'NOT_SUBMITTED'
-    }))
-  });
+    defaultValues: {
+      businessName: '',
+      legalAddress: '',
+      registrationNumber: '',
+      taxInformation: '',
+      incorporationDocuments: '',
+    }
+  })
 
   useEffect(() => {
-    requiredDocuments.forEach((doc, index) => {
-      form.setValue(`${index}`, {
-        document_type: doc.id,
-        document_url: user?.kyc_documents?.find(userDoc => userDoc.document_type === doc.id)?.document_url ?? '',
-        status: user?.kyc_documents?.find(userDoc => userDoc.document_type === doc.id)?.status || 'NOT_SUBMITTED'
-        });
-      });
-  }, [user, form]);
+    if (user?.kyc_documents) {
+      requiredDocuments.forEach((doc) => {
+        const userDoc = user.kyc_documents.find(userDoc => userDoc.document_type === doc.id)
+        if (userDoc) {
+          form.setValue(doc.id as keyof FormValues, userDoc.document_url)
+        }
+      })
+    }
+  }, [user, form])
 
-  const uploadImageMutation = trpc.uploadImage.useMutation();
-  const upsertKYCDocument = trpc.upsertKYCDocument.useMutation();
+  useEffect(() => {
+    const values = form.getValues()
+    const completedFields = Object.values(values).filter(Boolean).length
+    setProgress((completedFields / requiredDocuments.length) * 100)
+  }, [form])
+
+  const uploadImageMutation = trpc.uploadImage.useMutation()
+  const upsertKYCDocument = trpc.upsertKYCDocument.useMutation()
 
   const handleFileChange = async (documentType: string, event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target?.files?.[0];
-    if (!file) return;
+    const file = event.target?.files?.[0]
+    if (!file) return
+
+    const docConfig = requiredDocuments.find(doc => doc.id === documentType)
+    if (!docConfig) return
+
+    if (file.size > docConfig.maxSize) {
+      toast({
+        title: "Error",
+        description: `File size exceeds the maximum limit of ${docConfig.maxSize / (1024 * 1024)}MB`,
+        variant: "destructive",
+      })
+      return
+    }
+
+    if (!docConfig.acceptedFormats.some(format => file.name.toLowerCase().endsWith(format))) {
+      toast({
+        title: "Error",
+        description: `Invalid file format. Accepted formats are: ${docConfig.acceptedFormats.join(', ')}`,
+        variant: "destructive",
+      })
+      return
+    }
 
     try {
       const base64File = await new Promise<string>((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onloadend = () => resolve(reader.result as string);
-        reader.onerror = reject;
-        reader.readAsDataURL(file);
-      });
+        const reader = new FileReader()
+        reader.onloadend = () => resolve(reader.result as string)
+        reader.onerror = reject
+        reader.readAsDataURL(file)
+      })
 
-      const uploadResponse = await uploadImageMutation.mutateAsync({ file: base64File });
+      const uploadResponse = await uploadImageMutation.mutateAsync({ file: base64File })
       
       if (uploadResponse.url) {
-        const documents = Object.values(form.getValues());
-        const docIndex = documents.findIndex(doc => doc.document_type === documentType);
-        
-        if (docIndex !== -1) {
-          form.setValue(`${docIndex}`, {
-            ...documents[docIndex],
-            document_url: uploadResponse.url
-          });
-        }
-
+        form.setValue(documentType as keyof FormValues, uploadResponse.url)
         toast({
           title: "Success",
           description: "Document uploaded successfully"
-        });
+        })
+        // Reset the file input
+        event.target.value = ''
       }
     } catch (error) {
-      console.error("Error in file upload:", error);
+      console.error("Error in file upload:", error)
       toast({
         title: "Error",
+        description: "Failed to upload document",
         variant: "destructive",
-        description: "Failed to upload document"
-      });
+      })
     }
-  };
+  }
 
   const onSubmit = async (data: FormValues) => {
-    const allDocumentsUploaded = data.every(doc => doc.document_url);
+    const allDocumentsUploaded = Object.values(data).every(Boolean)
     
     if (!allDocumentsUploaded) {
       toast({
         title: "Warning",
+        description: "Please upload all required documents",
         variant: "destructive",
-        description: "Please upload all required documents"
-      });
-      return;
+      })
+      return
     }
 
     try {
-      await upsertKYCDocument.mutateAsync(data);
+      await upsertKYCDocument.mutateAsync(Object.entries(data).map(([key, value]) => ({
+        document_type: key,
+        document_url: value || '',
+        status: 'PENDING'
+      })))
 
       toast({
         title: "Success",
         description: "All documents submitted successfully"
-      });
+      })
 
-      router.push('/dashboard');
+      router.push('/dashboard')
     } catch (error) {
-      console.error('Error submitting documents:', error);
+      console.error('Error submitting documents:', error)
       toast({
         title: "Error",
+        description: "Failed to submit documents",
         variant: "destructive",
-        description: "Failed to submit documents"
-      });
+      })
     }
-  };
+  }
 
   return (
-    <div className="w-full max-w-4xl mx-auto p-4 lg:p-8">
-      <div className="text-center mb-8">
-        <h1 className="text-2xl lg:text-3xl font-extrabold tracking-tight">
-          Upload your documents
-        </h1>
-        <p className="text-sm lg:text-base text-muted-foreground mt-2">
-          Please upload each document as a PDF, PNG, or JPG file. Each file
-          cannot exceed 10MB.
-        </p>
-      </div>
-
-      <Form {...form}>
-        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-          {requiredDocuments.map((doc) => (
-            <FormField
-              key={doc.id}
-              control={form.control}
-              name={`${requiredDocuments.findIndex(d => d.id === doc.id)}`}
-              render={({ field }) => (
-                <FormItem>
-                  <Card>
-                    <CardContent className="p-4">
-                      <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
-                        <div className="flex-1">
-                          <FormLabel className="text-lg font-semibold">{doc.label}</FormLabel>
-                          <p className="text-sm text-muted-foreground">{doc.description}</p>
-                          <p className={`text-sm font-medium mt-1 ${
-                            field.value?.status === "PENDING" ? "text-yellow-500" : 
-                            field.value?.status === "APPROVED" ? "text-green-500" : 
-                            field.value?.status === "REJECTED" ? "text-red-500" : 
-                            "text-blue-500"
-                          }`}>
-                            Status: {field.value?.status?.replace(/_/g, ' ')}
-                          </p>
-                        </div>
-                        
-                        <div className="flex items-center gap-4">
-                          <FormControl>
-                            <div className="flex items-center gap-2">
-                              <Input
-                                title="Upload"
-                                type="file"
-                                id={doc.id}
-                                className="hidden"
-                                onChange={(e) => handleFileChange(doc.id, e)}
-                                accept=".pdf,.png,.jpg,.jpeg"
-                              />
-                              <label htmlFor={doc.id}>
-                                <Button 
-                                  type="button" 
-                                  variant="outline"
-                                  disabled={field.value?.status === 'PENDING'}
-                                  className="px-8 cursor-pointer"
-                                  asChild
-                                >
-                                  <span>Upload</span>
-                                </Button> 
-                              </label>
-                              {field.value?.document_url && (
-                                <Image
-                                  src={field.value.document_url}
-                                  alt={`${doc.id} preview`}
-                                  width={50}
-                                  height={50}
-                                  objectFit="contain"
-                                />
-                              )}
-                            </div>
-                          </FormControl>
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                </FormItem>
-              )}
-            />
-          ))}
-
-          <div className="flex flex-row items-end place-content-end justify-end mt-4">
-            <Button type="submit" onClick={form.handleSubmit(onSubmit)}>
-              Submit
-            </Button>
-            
+    <div className="container mx-auto py-10">
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-2xl font-bold">Know Your Business (KYB)</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="mb-6">
+            <h2 className="text-lg font-semibold mb-2">Verification Progress</h2>
+            <Progress value={progress} className="w-full" />
+            <p className="text-sm text-muted-foreground mt-2">{Math.round(progress)}% complete</p>
           </div>
-        </form>
-      </Form>
-    </div>
-  );
-}
 
-export default KYB;
+          <Form {...form}>
+            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+              {requiredDocuments.map((doc) => (
+                <FormField
+                  key={doc.id}
+                  control={form.control}
+                  name={doc.id as keyof FormValues}
+                  render={({ field }) => (
+                    <FormItem>
+                      <Card>
+                        <CardContent className="p-4">
+                          <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
+                            <div className="flex-1">
+                              <FormLabel className="text-lg font-semibold">{doc.label}</FormLabel>
+                              <p className="text-sm text-muted-foreground">{doc.description}</p>
+                              <div className="flex items-center mt-2">
+                                <Badge variant={field.value ? "default" : "secondary"} className="mr-2">
+                                  {field.value ? (
+                                    <>
+                                      <CheckCircle2 className="w-4 h-4 mr-1" />
+                                      Uploaded
+                                    </>
+                                  ) : (
+                                    <>
+                                      <AlertCircle className="w-4 h-4 mr-1" />
+                                      Not Uploaded
+                                    </>
+                                  )}
+                                </Badge>
+                                {field.value && (
+                                  <Badge variant="outline">
+                                    <Clock className="w-4 h-4 mr-1" />
+                                    Pending Review
+                                  </Badge>
+                                )}
+                              </div>
+                            </div>
+                            
+                            <div className="flex items-center gap-4">
+                              <FormControl>
+                                <div className="flex items-center gap-2">
+                                  <Input
+                                    type="file"
+                                    id={`${doc.id}-input`}
+                                    className="hidden"
+                                    onChange={(e) => handleFileChange(doc.id, e)}
+                                    accept={doc.acceptedFormats.join(',')}
+                                  />
+                                  <Button 
+                                    type="button" 
+                                    variant="outline"
+                                    className="cursor-pointer"
+                                    onClick={() => document.getElementById(`${doc.id}-input`)?.click()}
+                                  >
+                                    <Upload className="w-4 h-4 mr-2" />
+                                    {field.value ? 'Replace' : 'Upload'}
+                                  </Button> 
+                                  {field.value && (
+                                    <Image
+                                      src={field.value}
+                                      alt={`${doc.id} preview`}
+                                      width={50}
+                                      height={50}
+                                      objectFit="contain"
+                                    />
+                                  )}
+                                </div>
+                              </FormControl>
+                            </div>
+                          </div>
+                        </CardContent>
+                      </Card>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              ))}
+
+              <div className="flex justify-end mt-6">
+                <Button type="submit" size="lg">
+                  Submit All Documents
+                </Button>
+              </div>
+            </form>
+          </Form>
+        </CardContent>
+      </Card>
+    </div>
+  )
+}

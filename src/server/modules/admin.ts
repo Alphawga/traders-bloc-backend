@@ -5,9 +5,10 @@ import { kycUpdateSchema } from '@/lib/dtos';
 import prisma from '@/lib/prisma';
 import { milestoneUpdateSchema } from '@/lib/dtos';
 import { z } from 'zod';
-import { ApprovalStatus, Prisma } from '@prisma/client';
+import { ApprovalStatus, NotificationType, Prisma } from '@prisma/client';
 import { TRPCError } from '@trpc/server';
 import bcrypt from 'bcrypt'
+import { createNotification } from '@/lib/helper-function';
 
 
 
@@ -15,7 +16,7 @@ export const getAllMilestones = adminProcedure
   .input(
     z.object({
       search: z.string().optional(),
-      status: z.enum(["PENDING", "APPROVED", "REJECTED"]).optional(),
+      status: z.enum(["PENDING", "APPROVED", "REJECTED", "NOT_SUBMITTED"]).optional(),
       page: z.number().default(1),
       limit: z.number().default(10),
       sortBy: z.string().optional(),
@@ -157,9 +158,12 @@ export const getAllMilestones = adminProcedure
   });
 
 export const getAdminData = adminProcedure
-  .query(async ({ctx}) => {
+  .query(async ({ctx}) => { 
     const admin = await prisma.admin.findUnique({
-      where:{id: ctx.session.user.id ?? ""}
+      where:{id: ctx.session.user.id ?? ""},
+      include:{
+          notifications: true
+      }
     });
 
     if (!admin) {
@@ -179,13 +183,20 @@ export const updateMilestoneSatus = adminProcedure
       data: { status },
     });
 
+    await createNotification(
+      `Milestone has been ${status}`,
+      NotificationType.MILESTONE_STATUS_UPDATE,
+      `${milestone.id}`,
+      milestone.user_id
+    )
+
     return milestone;
   });
 
   export const getAllKYCDocuments = adminProcedure
   .input(z.object({
     search: z.string().optional(),
-    status: z.enum(['PENDING', 'APPROVED', 'REJECTED']).optional(),
+    status: z.enum(['PENDING', 'APPROVED', 'REJECTED', 'NOT_SUBMITTED']).optional(),
     page: z.number().default(1),
     limit: z.number().default(10),
     sortBy: z.string().optional(),
@@ -328,7 +339,7 @@ export const updateMilestoneSatus = adminProcedure
 
       const unreadNotifications = await prisma.notification.findMany({
         where: {
-          admin_id: adminId,
+
           is_read: false,
           deleted_at: null,
         },
@@ -365,6 +376,13 @@ export const updateKYCDocument = adminProcedure
         reviewed_by: ctx.session.user.id,
       },
     });
+    await createNotification(
+      `KYC document has been ${status}`,
+      NotificationType.KYC_STATUS_UPDATE,
+      `${kyc_id}`,
+      kycDocument.user_id,
+      ctx.session
+    )
 
     return kycDocument;
   });
@@ -384,6 +402,14 @@ export const updateFundingRequest = adminProcedure
       },
     });
 
+    await createNotification(
+      `Funding request has been ${status}`,
+      NotificationType.FUNDING_STATUS_UPDATE,
+      `${fundingRequest.id}`,
+      fundingRequest.user_id,
+      ctx.session
+    )
+
     return fundingRequest;
   });
 
@@ -400,9 +426,17 @@ export const updateInvoiceStatus = adminProcedure
       data: {
         status,
         review_date: new Date(),
-        reviewed_by: ctx.session.user.id,
+        admin_id: ctx.session.user.id,
       },
-    });
+      });
+
+    await createNotification(
+      `Invoice has been ${status}`,
+      NotificationType.INVOICE_STATUS_UPDATE,
+      `${invoice.id}`,
+      invoice.user_id,
+      ctx.session
+    )
 
     return invoice;
   });
@@ -443,7 +477,7 @@ export const getAllInvoices = adminProcedure
   .input(
     z.object({
       search: z.string().optional(),
-      status: z.enum(["PENDING", "APPROVED", "REJECTED"]).optional(),
+      status: z.enum(["PENDING", "APPROVED", "REJECTED", "NOT_SUBMITTED"]).optional(),
       vendor: z.string().optional(),
       page: z.number().default(1),
       limit: z.number().default(10),
@@ -780,4 +814,269 @@ export const updateAdminData = adminProcedure
         cause: error,
       });
     }
+  });
+
+
+  export const getReportData = adminProcedure
+  .input(z.object({
+    timeRange: z.enum(['week', 'month', 'year'])
+  }))
+  .query(async ({ input }) => {
+    const { timeRange } = input;
+    
+    // Calculate date range
+    const now = new Date();
+    const startDate = new Date();
+    switch (timeRange) {
+      case 'week':
+        startDate.setDate(now.getDate() - 7);
+        break;
+      case 'month':
+        startDate.setMonth(now.getMonth() - 1);
+        break;
+      case 'year':
+        startDate.setFullYear(now.getFullYear() - 1);
+        break;
+    }
+
+    // Get previous period for growth calculations
+    const previousStartDate = new Date(startDate);
+    switch (timeRange) {
+      case 'week':
+        previousStartDate.setDate(previousStartDate.getDate() - 7);
+        break;
+      case 'month':
+        previousStartDate.setMonth(previousStartDate.getMonth() - 1);
+        break;
+      case 'year':
+        previousStartDate.setFullYear(previousStartDate.getFullYear() - 1);
+        break;
+    }
+
+    const [
+      currentInvoices,
+      previousInvoices,
+      activeUsers,
+      previousActiveUsers,
+      currentMilestones,
+      previousMilestones,
+      invoiceTrends,
+      statusDistribution,
+      milestoneProgress,
+      userActivity
+    ] = await Promise.all([
+      // Total Invoices (current period)
+      prisma.invoice.count({
+        where: { submission_date: { gte: startDate } }
+      }),
+      // Total Invoices (previous period)
+      prisma.invoice.count({
+        where: { 
+          submission_date: { 
+            gte: previousStartDate,
+            lt: startDate 
+          } 
+        }
+      }),
+      // Active Users (current period)
+      prisma.user.count({
+        where: { created_at: { gte: startDate } }
+      }),
+      // Active Users (previous period)
+      prisma.user.count({
+        where: { 
+          created_at: { 
+            gte: previousStartDate,
+            lt: startDate 
+          } 
+        }
+      }),
+      // Total Milestones (current period)
+      prisma.milestone.count({
+        where: { created_at: { gte: startDate } }
+      }),
+      // Total Milestones (previous period)
+      prisma.milestone.count({
+        where: { 
+          created_at: { 
+            gte: previousStartDate,
+            lt: startDate 
+          } 
+        }
+      }),
+      // Invoice Trends
+      prisma.invoice.groupBy({
+        by: ['submission_date'],
+        where: { submission_date: { gte: startDate } },
+        _count: { id: true },
+        _sum: { total_price: true },
+        orderBy: { submission_date: 'asc' }
+      }),
+      // Status Distribution
+      prisma.invoice.groupBy({
+        by: ['status'],
+        _count: { id: true }
+      }),
+      // Milestone Progress
+      prisma.milestone.groupBy({
+        by: ['status'],
+        _count: { id: true }
+      }),
+      // User Activity
+      prisma.user.groupBy({
+        by: ['created_at'],
+        where: { created_at: { gte: startDate } },
+        _count: { id: true }
+      })
+    ]);
+
+    // Calculate total amount
+    const totalAmount = await prisma.invoice.aggregate({
+      where: { submission_date: { gte: startDate } },
+      _sum: { total_price: true }
+    });
+
+    const previousTotalAmount = await prisma.invoice.aggregate({
+      where: { 
+        submission_date: { 
+          gte: previousStartDate,
+          lt: startDate 
+        } 
+      },
+      _sum: { total_price: true }
+    });
+
+    // Calculate growth percentages
+    const calculateGrowth = (current: number, previous: number) => 
+      previous === 0 ? 0 : ((current - previous) / previous) * 100;
+
+    return {
+      totalInvoices: currentInvoices,
+      invoiceGrowth: calculateGrowth(currentInvoices, previousInvoices),
+      activeUsers,
+      userGrowth: calculateGrowth(activeUsers, previousActiveUsers),
+      totalMilestones: currentMilestones,
+      milestoneGrowth: calculateGrowth(currentMilestones, previousMilestones),
+      totalAmount: totalAmount._sum.total_price || 0,
+      amountGrowth: calculateGrowth(
+        totalAmount._sum.total_price || 0,
+        previousTotalAmount._sum.total_price || 0
+      ),
+      invoiceTrends: invoiceTrends.map(trend => ({
+        date: trend.submission_date,
+        amount: trend._sum.total_price || 0,
+        count: trend._count.id
+      })),
+      statusDistribution: statusDistribution.map(status => ({
+        name: status.status,
+        value: status._count.id
+      })),
+      milestoneProgress: [
+        {
+          name: 'Milestones',
+          completed: milestoneProgress.find(m => m.status === 'APPROVED')?._count.id || 0,
+          pending: milestoneProgress.find(m => m.status === 'PENDING')?._count.id || 0
+        }
+      ],
+      userActivity: userActivity.map(activity => ({
+        date: activity.created_at,
+        activeUsers: activity._count.id,
+        newUsers: activity._count.id
+      }))
+    };
+  });
+
+  export const getFundingRequest = adminProcedure.input(z.object({id: z.string()})).query(async ({input}) => {
+    const {id} = input
+    const fundingRequest = await prisma.fundingRequest.findUnique({where: {id}, include: {user: true, invoice: true}})
+    return fundingRequest
+  })
+
+  export const getInvoice = adminProcedure.input(z.object({id: z.string()})).query(async ({input}) => {
+    const {id} = input
+    const invoice = await prisma.invoice.findUnique({where: {id}, include: {user: true, vendor: true}})
+    return invoice
+  })
+
+  export const getKYCDocument = adminProcedure.input(z.object({id: z.string()})).query(async ({input}) => {
+    const {id} = input
+    const kycDocument = await prisma.kYCDocument.findUnique({where: {id}, include: {user: true}})
+    return kycDocument
+  })
+
+  export const getMilestone = adminProcedure.input(z.object({id: z.string()})).query(async ({input}) => {
+    const {id} = input
+    const milestone = await prisma.milestone.findUnique({where: {id}, include: {user: true, invoice: true}})
+    return milestone
+  })
+
+export const getAllVendors = adminProcedure
+  .input(
+    z.object({
+      search: z.string().optional(),
+      page: z.number().default(1),
+      limit: z.number().default(10),
+      sortBy: z.string().optional(),
+      sortOrder: z.enum(["asc", "desc"]).default("asc"),
+    })
+  )
+  .query(async ({ input }) => {
+    const { search, page, limit, sortBy, sortOrder } = input;
+    const skip = (page - 1) * limit;
+    const where: Prisma.VendorWhereInput = {};
+
+    // Search filter
+    if (search) {
+      where.OR = [
+        { name: { contains: search, mode: "insensitive" } },
+        { contact_person: { contains: search, mode: "insensitive" } },
+        { email: { contains: search, mode: "insensitive" } },
+        { phone_number: { contains: search, mode: "insensitive" } },
+      ];
+    }
+
+    // Get total count for pagination
+    const total = await prisma.vendor.count({ where });
+
+    // Build order by object
+    const orderBy: Prisma.VendorOrderByWithRelationInput = sortBy
+      ? { [sortBy]: sortOrder }
+      : { name: "asc" };
+
+    // Get paginated and filtered vendors
+    const vendors = await prisma.vendor.findMany({
+      where,
+      skip,
+      take: limit,
+      orderBy,
+    });
+
+    return {
+      data: vendors,
+      metadata: {
+        total,
+        page,
+        limit,
+        totalPages: Math.ceil(total / limit),
+      },
+    };
+  });
+
+export const updateVendor = adminProcedure.input(vendorSchema).mutation(async ({input}) => {
+  const {vendor_id, ...data} = input
+  const vendor = await prisma.vendor.update({where: {id: vendor_id}, data})
+  return vendor
+})
+
+export const markNotificationAsRead = adminProcedure
+  .input(z.object({ notification_id: z.string() }))
+  .mutation(async ({ input }) => {
+    const { notification_id } = input;
+
+    const notification = await prisma.notification.update({
+      where: { id: notification_id },
+      data: { is_read: true },
+    });
+
+    return notification;
   });

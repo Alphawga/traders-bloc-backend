@@ -43,9 +43,10 @@ import Image from "next/image"
 import { ApprovalStatus } from "@prisma/client"
 
 function KYCReview() {
+  const [openDialog, setOpenDialog] = useState(false);
   const [filters, setFilters] = useState<IKYCFilterParams>({
     search: "",
-    status: undefined,
+    status: "PENDING",
     industry: undefined,
     page: 1,
     limit: 10,
@@ -64,6 +65,7 @@ function KYCReview() {
       })
       refetch();
       setSelectedKYC(null);
+      setOpenDialog(false);
     },
     onError: () => {
       toast({
@@ -176,7 +178,7 @@ function KYCReview() {
                     </span>
                   </TableCell>
                   <TableCell>
-                    <Dialog>
+                    <Dialog open={openDialog} onOpenChange={setOpenDialog}>
                       <DialogTrigger asChild>
                         <Button variant="outline" size="sm" className="bg-black text-white hover:bg-gray-700">View</Button>
                       </DialogTrigger>

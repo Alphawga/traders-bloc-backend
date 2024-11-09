@@ -182,7 +182,7 @@ function FundingRequestReview() {
                   <TableCell>${request.your_contribution.toFixed(2)}</TableCell>
                   <TableCell>{format(new Date(request.submission_date), 'MMM dd, yyyy')}</TableCell>
                   <TableCell>
-                    <span className={`px-2 py-1 rounded-full text-xs ${getStatusColor(request.status)}`}>
+                    <span className={`px-2 py-1 rounded-full text-xs ${getStatusColor(request.status as ApprovalStatus)}`}>
                       {request.status}
                     </span>
                   </TableCell>

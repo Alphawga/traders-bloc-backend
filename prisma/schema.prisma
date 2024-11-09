@@ -70,6 +70,7 @@ model KYCDocument {
   review_date        DateTime?
   user               User     @relation(fields: [user_id], references: [id])
   reviewed_by        Admin?   @relation(fields: [admin_id], references: [id])
+  file_name          String?
 
   @@unique(name: "user_document_type", fields: [user_id, document_type])
 }
@@ -141,16 +142,14 @@ model FundingRequest {
 
 model Notification {
   id                 String   @id @default(uuid())
-  user_id            String?
-  admin_id           String?
   message            String
   link               String?
   type               NotificationType
   is_read            Boolean  @default(false)
   created_at         DateTime @default(now())
   deleted_at         DateTime?
-  user               User?     @relation(fields: [user_id], references: [id])
-  admin              Admin? @relation(fields: [admin_id], references: [id])
+  user               User[]
+  admin              Admin[]
 }
 
 model Permission {
@@ -177,6 +176,7 @@ enum AdminRole {
 }
 
 enum ApprovalStatus {
+  NOT_SUBMITTED
   PENDING
   APPROVED
   REJECTED
@@ -188,6 +188,11 @@ enum NotificationType {
   MILESTONE_UPDATE
   FUNDING_UPDATE
   SYSTEM_ALERT
+  INVOICE_STATUS_UPDATE
+  MILESTONE_STATUS_UPDATE
+  FUNDING_STATUS_UPDATE
+  KYC_STATUS_UPDATE
+  
 }
 
 model Vendor {

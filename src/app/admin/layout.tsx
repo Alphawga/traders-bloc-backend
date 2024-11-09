@@ -6,12 +6,12 @@ import { useSession } from 'next-auth/react'
 import useUserStore from '@/store/user-store'
 import { useUserData } from '@/hooks/use-user-data'
 import { UserWithRelations } from '@/lib/model'
-import { Header } from '@/components/dashboard-layout'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Button } from '@/components/ui/button'
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet"
 import { MenuIcon } from 'lucide-react'
 import AdminSidebar from '@/components/admin-side-bar'
+import { AdminHeader } from '@/components/admin-header'
 
 interface UserLayoutProps {
   children: React.ReactNode
@@ -46,7 +46,17 @@ export default function UserLayout({ children }: UserLayoutProps) {
 
     return () => window.removeEventListener('resize', checkScreenSize)
   }, [])
-
+  if(status === "loading"){
+    return (
+      <div className="h-screen w-screen flex items-center justify-center">
+        <div className="text-center">
+          <h1 className="text-3xl font-bold mb-2 animate-typing animate-bounce overflow-hidden whitespace-nowrap text-gray-500">
+            Traders by bloc
+          </h1>
+        </div>
+      </div>
+    )
+  }
   return (
     <div className="flex h-screen overflow-hidden">
       {isMobile ? (
@@ -72,7 +82,7 @@ export default function UserLayout({ children }: UserLayoutProps) {
         </ScrollArea>
       )}
       <div className="flex-1 flex flex-col overflow-hidden">
-        <Header />
+        <AdminHeader />
         <main className="flex-1 overflow-y-auto p-6">
           {children}
         </main>
