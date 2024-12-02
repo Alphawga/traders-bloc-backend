@@ -55,18 +55,18 @@ async function seedUsers() {
 console.log(`Vendor created: ${vendor.name}`);
 
   const admin = await prisma.admin.upsert({
-    where: { email: 'admin@example.com' },
+    where: { email: 'edmund@blochq.io' },
     update: {
-      email: 'admin@example.com',
+      email: 'edmund@blochq.io',
       password: await bcrypt.hash('admin123', 10), 
-      name: 'Admin User',
+      name: 'Edmund Olotu',
       role: 'ADMIN',
       is_active: true,
     },
     create: {
-      email: 'admin@example.com',
+      email: 'edmund@blochq.io',
       password: await bcrypt.hash('admin123', 10), 
-      name: 'Admin User',
+      name: 'Edmund Olotu',
       role: 'ADMIN',
       is_active: true,
     },
