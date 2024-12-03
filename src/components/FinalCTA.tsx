@@ -2,7 +2,7 @@ import Link from 'next/link'
 
 export default function FinalCTA() {
   return (
-    <section className="w-full py-12 md:py-24 lg:py-32 bg-black text-gray-50">
+    <section className="w-full py-12 md:py-24 lg:py-32 bg-gray-900 text-gray-50">
       <div className="container px-4 md:px-6">
         <div className="flex flex-col items-center space-y-4 text-center">
           <div className="space-y-2">
@@ -22,7 +22,7 @@ export default function FinalCTA() {
             </Link>
             <Link
               className="w-full sm:w-auto inline-flex h-11 items-center justify-center rounded-md border border-gray-200 bg-gray-900 px-8 text-sm font-medium text-gray-50 shadow-sm transition-colors hover:bg-gray-800 hover:text-gray-50 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-gray-300 disabled:pointer-events-none disabled:opacity-50 dark:border-gray-800 dark:bg-gray-50 dark:text-gray-900 dark:hover:bg-gray-50/90 dark:focus-visible:ring-gray-300"
-              href="/partner-inquiry"
+              href="/partner-enquiry"
             >
               Learn About Partnering
             </Link>

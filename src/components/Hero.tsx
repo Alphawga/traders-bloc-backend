@@ -30,7 +30,12 @@ export default function Hero() {
               >
                 Get Started Now
               </Link>
-              
+              <Link
+                href="/partner-enquiry"
+                className="inline-flex h-10 items-center justify-center rounded-md bg-white border border-gray-900 px-8 text-sm font-medium text-gray-900 shadow transition-colors hover:bg-gray-100 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-black"
+              >
+                Learn about Partnering
+              </Link>
             </div>
           </motion.div>
           <motion.div 

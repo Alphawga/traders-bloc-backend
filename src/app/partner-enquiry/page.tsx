@@ -1,15 +1,15 @@
 'use client'
 import { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
+import HeroSection from '@/components/partner-enquiry/Hero-section'
+import KeyBenefitsSection from '@/components/partner-enquiry/key-benefits-section'
+import HowItWorksSection from '@/components/partner-enquiry/how-it-works'
+import ContactFormSection from '@/components/partner-enquiry/contact-form-section'
+import FinalCTABanner from '@/components/partner-enquiry/final-cta-action'
 import TopNav from '@/components/TopNav'
-import Hero from '@/components/Hero'
-import VendorFinancingOverview from '@/components/VendorFinancingOverview'
-import PartnerWithTraders from '@/components/PartnerWithTraders'
-import AboutTraders from '@/components/AboutTraders'
-import FinalCTA from '@/components/FinalCTA'
 import Footer from '@/components/Footer'
 
-export default function Home() {
+export default function PartnerInquiry() {
   const [showBackToTop, setShowBackToTop] = useState(false)
 
   // Handle scroll event to show/hide back to top button
@@ -34,15 +34,66 @@ export default function Home() {
     })
   }
 
+  // Page fade-in animation
+  const pageVariants = {
+    initial: {
+      opacity: 0,
+      y: 20
+    },
+    animate: {
+      opacity: 1,
+      y: 0,
+      transition: {
+        duration: 0.8,
+        staggerChildren: 0.2
+      }
+    }
+  }
+
   return (
-    <div className="flex min-h-screen flex-col bg-white text-black">
+    <motion.div 
+      className="flex flex-col min-h-screen"
+      initial="initial"
+      animate="animate"
+      variants={pageVariants}
+    >
       <TopNav />
       <main className="flex-grow">
-        <Hero />
-        <VendorFinancingOverview />
-        <PartnerWithTraders />
-        <AboutTraders />
-        <FinalCTA />
+        <motion.div variants={pageVariants}>
+          <HeroSection />
+        </motion.div>
+        
+        <motion.div 
+          variants={pageVariants}
+          viewport={{ once: true }}
+          whileInView="animate"
+        >
+          <KeyBenefitsSection />
+        </motion.div>
+        
+        <motion.div 
+          variants={pageVariants}
+          viewport={{ once: true }}
+          whileInView="animate"
+        >
+          <HowItWorksSection />
+        </motion.div>
+        
+        <motion.div 
+          variants={pageVariants}
+          viewport={{ once: true }}
+          whileInView="animate"
+        >
+          <ContactFormSection />
+        </motion.div>
+        
+        <motion.div 
+          variants={pageVariants}
+          viewport={{ once: true }}
+          whileInView="animate"
+        >
+          <FinalCTABanner />
+        </motion.div>
       </main>
 
       {/* Back to Top Button */}
@@ -76,7 +127,17 @@ export default function Home() {
       </AnimatePresence>
 
       <Footer />
-    </div>
+    </motion.div>
   )
 }
+
+
+
+
+
+
+
+
+
+
 
