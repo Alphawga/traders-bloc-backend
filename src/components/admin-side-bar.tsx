@@ -4,7 +4,7 @@ import { usePathname } from 'next/navigation'
 import Link from 'next/link'
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
-import { HomeIcon, FileTextIcon, CreditCardIcon, DollarSignIcon, BarChartIcon, UserIcon, LogOutIcon } from 'lucide-react'
+import { HomeIcon, FileTextIcon, CreditCardIcon, DollarSignIcon, BarChartIcon, UserIcon, LogOutIcon, KeyRoundIcon } from 'lucide-react'
 import { signOut } from 'next-auth/react'
 
 export function AdminSidebar({ className }: React.HTMLAttributes<HTMLDivElement>) {
@@ -31,8 +31,14 @@ export function AdminSidebar({ className }: React.HTMLAttributes<HTMLDivElement>
                KYC
               </Link>
             </Button>
-            <Button variant={pathname === '/admin/invoices-review' ? 'secondary' : 'ghost'} className="w-full justify-start" asChild>
-              <Link href="/admin/invoices-review">
+            <Button variant={pathname === '/admin/access-control' ? 'secondary' : 'ghost'} className="w-full justify-start" asChild>
+              <Link href="/admin/access-control">
+                <KeyRoundIcon className="mr-2 h-4 w-4" />
+               Access Control
+              </Link>
+            </Button>
+            <Button variant={pathname === '/admin/invoices' ? 'secondary' : 'ghost'} className="w-full justify-start" asChild>
+              <Link href="/admin/invoices">
                 <FileTextIcon className="mr-2 h-4 w-4" />
               Invoices
               </Link>

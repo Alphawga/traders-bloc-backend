@@ -8,7 +8,7 @@ export default function AboutTraders() {
           <div className="space-y-2">
             <h2 className="text-2xl font-bold tracking-tighter sm:text-3xl md:text-4xl">About Traders by Bloc</h2>
             <p className="mx-auto max-w-[700px] text-gray-500 md:text-xl/relaxed lg:text-base/relaxed xl:text-xl/relaxed dark:text-gray-400">
-              Traders leverages BlocHQ&apos;s fintech infrastructure to deliver milestone-based vendor financing, solving cash flow
+              Traders leverages Bloc&apos;s fintech infrastructure to deliver milestone-based vendor financing, solving cash flow
               challenges in emerging markets.
             </p>
           </div>

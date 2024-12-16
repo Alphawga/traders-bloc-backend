@@ -28,7 +28,7 @@ export default function VendorFinancingOverview() {
                     className="flex items-center space-x-3"
                   >
                     <span className="flex-shrink-0 w-1.5 h-1.5 rounded-full bg-black"/>
-                    <span>Apply for financing (Must be a vendor with eligible companies).</span>
+                    <span>Apply for financing.</span>
                   </motion.li>
                   <motion.li 
                     initial={{ opacity: 0, x: -20 }}
@@ -37,7 +37,7 @@ export default function VendorFinancingOverview() {
                     className="flex items-center space-x-3"
                   >
                     <span className="flex-shrink-0 w-1.5 h-1.5 rounded-full bg-black"/>
-                    <span>Set milestones (Break down payments to match project stages.)</span>
+                    <span>Set milestones.</span>
                   </motion.li>
                   <motion.li 
                     initial={{ opacity: 0, x: -20 }}
@@ -46,7 +46,7 @@ export default function VendorFinancingOverview() {
                     className="flex items-center space-x-3"
                   >
                     <span className="flex-shrink-0 w-1.5 h-1.5 rounded-full bg-black"/>
-                    <span>48-hour approval (Fast, seamless funding when you need it.)</span>
+                    <span>48-hour approval.</span>
                   </motion.li>
                 </ul>
               </div>

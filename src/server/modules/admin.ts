@@ -1,18 +1,25 @@
-import { adminUpdateSchema, invoiceUpdateSchema, vendorSchema } from '@/lib/dtos';
-import { adminProcedure } from '../trpc';
+import { adminUpdateSchema, invoiceUpdateSchema, milestoneAssignSchema, vendorSchema } from '@/lib/dtos';
+import { adminProcedure, publicProcedure } from '../trpc';
 import { fundingRequestUpdateSchema } from '@/lib/dtos';
 import { kycUpdateSchema } from '@/lib/dtos';
 import prisma from '@/lib/prisma';
 import { milestoneUpdateSchema } from '@/lib/dtos';
 import { z } from 'zod';
-import { ApprovalStatus, NotificationType, Prisma } from '@prisma/client';
+import { ApprovalStatus, NotificationType, PaymentStatus, Prisma } from '@prisma/client';
 import { TRPCError } from '@trpc/server';
 import bcrypt from 'bcrypt'
 import { createNotification } from '@/lib/helper-function';
+import { BLOCK_PERMISSIONS } from '@/lib/contants';
+import { createProcedure } from '../context';
+import { getUserPermissions } from '@/lib/permission-utils';
 
 
+const headOfCreditProc   = createProcedure(BLOCK_PERMISSIONS.ASSIGN_INVOICES_TO_CREDIT_OPS_LEADS);
+const assignMilestonesToAnalystsProc = createProcedure(BLOCK_PERMISSIONS.ASSIGN_MILESTONES_TO_ANALYSTS);
+const coSignMilestoneProc = createProcedure(BLOCK_PERMISSIONS.CO_SIGN_MILESTONES_TO_TRIGGER_PAYMENTS);
 
-export const getAllMilestones = adminProcedure
+
+export const getAllMilestones = headOfCreditProc
   .input(
     z.object({
       search: z.string().optional(),
@@ -193,6 +200,94 @@ export const updateMilestoneSatus = adminProcedure
     return milestone;
   });
 
+  export const assignMilestonesToAnalysts = assignMilestonesToAnalystsProc
+  .input(milestoneAssignSchema)
+  .mutation(async ({ input, ctx }) => {
+    const { milestone_id, analyst_id } = input;
+
+    const milestone = await prisma.milestone.update({
+      where: { id: milestone_id },
+      data: { assigned_to_id: analyst_id, assigned_by_id: ctx.session.user.id },
+    });
+
+    return milestone;
+
+  });
+
+  export const getAllAnalysts = assignMilestonesToAnalystsProc
+  .query(async () => {
+    const analysts = await prisma.admin.findMany({
+      where: {
+        claims: {
+          some: {
+            role_name: BLOCK_PERMISSIONS.CREDIT_OPS_ANALYST,
+            active: true,
+          }
+        }
+      },
+      include: {
+        assigned_milestones: {
+          where: {
+            status: 'PENDING'
+          }
+        }
+      }
+    });
+
+    return analysts.map(analyst => ({
+      id: analyst.id,
+      name: analyst.name,
+      email: analyst.email,
+      pending_milestones: analyst.assigned_milestones.length
+    }));
+  });
+
+  export const assignMilestoneToAnalyst = assignMilestonesToAnalystsProc
+  .input(z.object({
+    milestone_id: z.string(),
+    analyst_id: z.string(),
+  }))
+  .mutation(async ({ input, ctx }) => {
+    const { milestone_id, analyst_id } = input;
+
+    // Verify analyst has correct role
+    const analystClaim = await prisma.claim.findFirst({
+      where: {
+        user_id: analyst_id,
+        role_name: BLOCK_PERMISSIONS.CREDIT_OPS_ANALYST,
+        active: true,
+      },
+    });
+
+    if (!analystClaim) {
+      throw new TRPCError({
+        code: 'BAD_REQUEST',
+        message: 'Selected user must be a Credit Ops Analyst',
+      });
+    }
+
+    const milestone = await prisma.milestone.update({
+      where: { id: milestone_id },
+      data: {
+        assigned_to_id: analyst_id,
+        assigned_by_id: ctx.session.user.id,
+      },
+      include: {
+        assigned_to: true,
+      },
+    });
+
+    await createNotification(
+      `Milestone has been assigned to ${milestone.assigned_to?.name}`,
+      NotificationType.MILESTONE_STATUS_UPDATE,
+      milestone_id,
+      milestone.user_id,
+      ctx.session
+    );
+
+    return milestone;
+  });
+
   export const getAllKYCDocuments = adminProcedure
   .input(z.object({
     search: z.string().optional(),
@@ -267,99 +362,136 @@ export const updateMilestoneSatus = adminProcedure
     };
   });
 
-  export const getAdminDashboardSummary = adminProcedure
+export const getAdminDashboardSummary = createProcedure()
   .query(async ({ ctx }) => {
     const adminId = ctx.session?.user?.id;
 
-
     if (!adminId) {
-      throw new Error("Unauthorized: Admin ID is missing");
+      throw new TRPCError({
+        code: 'UNAUTHORIZED',
+        message: 'You must be logged in to view the dashboard'
+      });
     }
 
     try {
-
+      // Get admin details
       const admin = await prisma.admin.findUnique({
-        where: {
-          id: adminId,
-        },
+        where: { id: adminId },
+        select: {
+          id: true,
+          name: true,
+          email: true,
+          claims: {
+            where: { active: true },
+            include: {
+              role: true
+            }
+          }
+        }
       });
 
       if (!admin) {
-        throw new Error("Admin not found");
+        throw new TRPCError({
+          code: 'NOT_FOUND',
+          message: 'Admin not found'
+        });
       }
 
- 
-      const pendingInvoices = await prisma.invoice.count({
-        where: {
-          status: "PENDING",
-          deleted_at: null,
-        },
-      });
+      // Get counts based on permissions
+      const [
+        pendingInvoices,
+        pendingFundRequest,
+        totalFundedResult,
+        pendingMilestone,
+        recentActivity,
+        unreadNotifications
+      ] = await Promise.all([
+        // Pending Invoices
+        prisma.invoice.count({
+          where: {
+            status: "PENDING",
+            deleted_at: null,
+            ...(admin.claims.some(c => c.role?.name === BLOCK_PERMISSIONS.CREDIT_OPS_LEAD) 
+              ? { assigned_admin_id: adminId }
+              : {})
+          },
+        }),
 
-  
-      const pendingFundRequest = await prisma.fundingRequest.count({
-        where: {
-          status: "PENDING",
-          deleted_at: null,
-        },
-      });
+        // Pending Fund Requests
+        prisma.fundingRequest.count({
+          where: {
+            status: "PENDING",
+            deleted_at: null,
+          },
+        }),
 
+        // Total Funded Amount
+        prisma.fundingRequest.aggregate({
+          _sum: {
+            requested_amount: true,
+          },
+          where: {
+            status: "APPROVED",
+            deleted_at: null,
+          },
+        }),
 
-      const totalFundedResult = await prisma.fundingRequest.aggregate({
-        _sum: {
-          requested_amount: true, 
-        },
-        where: {
-          status: "APPROVED",
-          deleted_at: null,
-        },
-      });
+        // Pending Milestones
+        prisma.milestone.count({
+          where: {
+            status: "PENDING",
+            deleted_at: null,
+            ...(admin.claims.some(c => c.role?.name === BLOCK_PERMISSIONS.CREDIT_OPS_ANALYST)
+              ? { assigned_to_id: adminId }
+              : {})
+          },
+        }),
 
-      const totalFunded = totalFundedResult._sum.requested_amount || 0;
+        // Recent Activity
+        prisma.activityLog.findMany({
+          where: {
+            admin_id: adminId,
+            deleted_at: null,
+          },
+          orderBy: {
+            created_at: "desc",
+          },
+          take: 10,
+        }),
 
-     
-      const pendingMilestone = await prisma.milestone.count({
-        where: {
-          status: "PENDING",
-          deleted_at: null,
-        },
-      });
+        // Unread Notifications
+        prisma.notification.findMany({
+          where: {
+            admin: {
+              some: {
+                id: adminId
+              }
+            },
+            is_read: false,
+            deleted_at: null,
+          },
+          orderBy: {
+            created_at: "desc",
+          },
+          take: 5,
+        }),
+      ]);
 
- 
-      const recentActivity = await prisma.activityLog.findMany({
-        where: {
-          admin_id: adminId,
-        },
-        orderBy: {
-          created_at: "desc", 
-        },
-        take: 10,
-      });
-  
-
-      const unreadNotifications = await prisma.notification.findMany({
-        where: {
-
-          is_read: false,
-          deleted_at: null,
-        },
-        orderBy: {
-          created_at: "desc",
-        }})
-
-        return {
+      return {
         admin,
         pendingInvoices,
         pendingFundRequest,
-        totalFunded,
+        totalFunded: totalFundedResult._sum.requested_amount || 0,
         pendingMilestone,
         recentActivity,
         unreadNotifications,
       };
-
     } catch (error) {
       console.error("Error fetching admin dashboard summary:", error);
-      throw new Error("Failed to retrieve admin dashboard summary. Please try again later.");
+      throw new TRPCError({
+        code: 'INTERNAL_SERVER_ERROR',
+        message: 'Failed to retrieve dashboard summary'
+      });
     }
   });
 
@@ -473,11 +605,11 @@ export const updateInvoiceStatus = adminProcedure
 
 
 
-export const getAllInvoices = adminProcedure
+export const getAllInvoices = createProcedure()
   .input(
     z.object({
       search: z.string().optional(),
-      status: z.enum(["PENDING", "APPROVED", "REJECTED", "NOT_SUBMITTED"]).optional(),
+      status: z.enum(["PENDING", "APPROVED", "REJECTED", "NOT_SUBMITTED", "FULLY_DELIVERED"]).optional(),
       vendor: z.string().optional(),
       page: z.number().default(1),
       limit: z.number().default(10),
@@ -494,9 +626,10 @@ export const getAllInvoices = adminProcedure
         "due-this-week",
         "due-this-month",
       ]).optional(),
+      assignmentStatus: z.enum(['all', 'assigned', 'unassigned']).optional(),
     })
   )
-  .query(async ({ input }) => {
+  .query(async ({ input, ctx }) => {
     const {
       search,
       status,
@@ -507,12 +640,21 @@ export const getAllInvoices = adminProcedure
       sortOrder,
       dueDateRange,
       dueDateFilter,
+      assignmentStatus,
     } = input;
     
     const skip = (page - 1) * limit;
     const where: Prisma.InvoiceWhereInput = {};
-    
 
+    // Check user permissions
+    const permissionResult = await getUserPermissions(ctx.session);
+    
+    // Check if user can only see assigned invoices
+    if (permissionResult.hasPermission("MANAGE_ASSIGNED_INVOICES")) {
+      where.assigned_admin_id = permissionResult.userId;
+    }
+
+    // Add other filters
     if (search) {
       where.OR = [
         { user: { first_name: { contains: search, mode: "insensitive" } } },
@@ -522,15 +664,13 @@ export const getAllInvoices = adminProcedure
       ];
     }
 
-
     if (status) {
-      where.status = status as ApprovalStatus;
+      where.status = status;
     }
 
     if (vendor) {
       where.vendor = { name: { contains: vendor, mode: "insensitive" } };
     }
-
 
     if (dueDateRange) {
       where.due_date = {
@@ -539,7 +679,7 @@ export const getAllInvoices = adminProcedure
       };
     }
 
-    if (dueDateFilter) {
+    if (dueDateFilter && dueDateFilter !== "all") {
       const today = new Date();
       today.setHours(0, 0, 0, 0);
 
@@ -565,25 +705,53 @@ export const getAllInvoices = adminProcedure
         },
       };
 
-      if (dueDateFilter !== "all") {
-        where.due_date = filters[dueDateFilter];
-      }
+      where.due_date = filters[dueDateFilter];
     }
 
-    const total = await prisma.invoice.count({ where });
-    const orderBy: Prisma.InvoiceOrderByWithRelationInput = sortBy
-      ? sortBy === "vendor"
-        ? { vendor: { name: sortOrder } }
-        : { [sortBy]: sortOrder }
-      : { submission_date: "desc" };
+    if (assignmentStatus && assignmentStatus !== 'all') {
+      where.assigned_admin_id = assignmentStatus === 'assigned' 
+        ? { not: null } 
+        : null;
+    }
 
-    const invoices = await prisma.invoice.findMany({
-      where,
-      include: { user: true, vendor: true },
-      skip,
-      take: limit,
-      orderBy,
-    });
+    const [total, invoices] = await Promise.all([
+      prisma.invoice.count({ where }),
+      prisma.invoice.findMany({
+        where,
+        include: { 
+          user: true, 
+          vendor: true, 
+          milestones: {
+            include: {
+              cosigned_by: true,
+              assigned_to: true,
+              assigned_by: true
+            }
+          }, 
+          funding_requests: true,
+          assigned_to: {
+            select: {
+              id: true,
+              name: true,
+              email: true
+            }
+          },
+          assigned_by: {
+            select: {
+              id: true,
+              name: true,
+            }
+          }
+        },
+        skip,
+        take: limit,
+        orderBy: sortBy
+          ? sortBy === "vendor"
+            ? { vendor: { name: sortOrder } }
+            : { [sortBy]: sortOrder }
+          : { submission_date: "desc" },
+      })
+    ]);
 
     return {
       data: invoices,
@@ -738,7 +906,6 @@ export const updateAdminData = adminProcedure
       select: {
         id: true,
         password: true,
-        role: true,
       },
     });
 
@@ -791,7 +958,6 @@ export const updateAdminData = adminProcedure
           id: true,
           email: true,
          name: true,
-          role: true,
           created_at: true,
           updated_at: true,
         },
@@ -817,173 +983,187 @@ export const updateAdminData = adminProcedure
   });
 
 
-  export const getReportData = adminProcedure
+  export const getReportData = headOfCreditProc
   .input(z.object({
     timeRange: z.enum(['week', 'month', 'year'])
   }))
   .query(async ({ input }) => {
     const { timeRange } = input;
-    
-    // Calculate date range
+
+    // Calculate date ranges
     const now = new Date();
     const startDate = new Date();
+    const previousStartDate = new Date();
+
     switch (timeRange) {
       case 'week':
         startDate.setDate(now.getDate() - 7);
+        previousStartDate.setDate(startDate.getDate() - 7);
         break;
       case 'month':
         startDate.setMonth(now.getMonth() - 1);
+        previousStartDate.setMonth(startDate.getMonth() - 1);
         break;
       case 'year':
         startDate.setFullYear(now.getFullYear() - 1);
+        previousStartDate.setFullYear(startDate.getFullYear() - 1);
         break;
     }
 
-    // Get previous period for growth calculations
-    const previousStartDate = new Date(startDate);
-    switch (timeRange) {
-      case 'week':
-        previousStartDate.setDate(previousStartDate.getDate() - 7);
-        break;
-      case 'month':
-        previousStartDate.setMonth(previousStartDate.getMonth() - 1);
-        break;
-      case 'year':
-        previousStartDate.setFullYear(previousStartDate.getFullYear() - 1);
-        break;
+    try {
+      const [
+        currentPeriodData,
+        previousPeriodData,
+        invoiceTrends,
+        statusDistribution,
+        milestoneProgress,
+        userActivity
+      ] = await Promise.all([
+        // Current period metrics
+        prisma.$transaction([
+          prisma.invoice.count({
+            where: { submission_date: { gte: startDate } }
+          }),
+          prisma.user.count({
+            where: { 
+              created_at: { gte: startDate },
+              deleted_at: null
+            }
+          }),
+          prisma.milestone.count({
+            where: { created_at: { gte: startDate } }
+          }),
+          prisma.fundingRequest.aggregate({
+            where: {
+              status: 'APPROVED',
+                submission_date: { gte: startDate }
+            },
+            _sum: { requested_amount: true }
+          })
+        ]),
+
+        // Previous period metrics
+        prisma.$transaction([
+          prisma.invoice.count({
+            where: {
+              submission_date: {
+                gte: previousStartDate,
+                lt: startDate
+              }
+            }
+          }),
+          prisma.user.count({
+            where: {
+              created_at: {
+                gte: previousStartDate,
+                lt: startDate
+              },
+              deleted_at: null
+            }
+          }),
+          prisma.milestone.count({
+            where: {
+              created_at: {
+                gte: previousStartDate,
+                lt: startDate
+              }
+            }
+          }),
+          prisma.fundingRequest.aggregate({
+            where: {
+              status: 'APPROVED',
+              submission_date: {
+                gte: previousStartDate,
+                lt: startDate
+              }
+            },
+            _sum: { requested_amount: true }
+          })
+        ]),
+
+        // Invoice trends
+        prisma.invoice.groupBy({
+          by: ['submission_date'],
+          where: { submission_date: { gte: startDate } },
+          _count: { id: true },
+          _sum: { total_price: true },
+          orderBy: { submission_date: 'asc' }
+        }),
+
+        // Status distribution
+        prisma.invoice.groupBy({
+          by: ['status'],
+          _count: { id: true }
+        }),
+
+        // Milestone progress
+        prisma.$transaction([
+          prisma.milestone.count({
+            where: { status: 'APPROVED' }
+          }),
+          prisma.milestone.count({
+            where: { status: 'PENDING' }
+          })
+        ]),
+
+        // User activity
+        prisma.user.groupBy({
+          by: ['created_at'],
+          where: { created_at: { gte: startDate } },
+          _count: { id: true },
+          orderBy: { created_at: 'asc' }
+        })
+      ]);
+
+      const [currentInvoices, currentUsers, currentMilestones, currentFunding] = currentPeriodData;
+      const [previousInvoices, previousUsers, previousMilestones, previousFunding] = previousPeriodData;
+      const [completedMilestones, pendingMilestones] = milestoneProgress;
+
+      // Calculate growth percentages
+      const calculateGrowth = (current: number, previous: number) => 
+        previous === 0 ? 0 : ((current - previous) / previous) * 100;
+
+      return {
+        totalInvoices: currentInvoices,
+        invoiceGrowth: calculateGrowth(currentInvoices, previousInvoices),
+        activeUsers: currentUsers,
+        userGrowth: calculateGrowth(currentUsers, previousUsers),
+        totalMilestones: currentMilestones,
+        milestoneGrowth: calculateGrowth(currentMilestones, previousMilestones),
+        totalAmount: currentFunding._sum.requested_amount || 0,
+        amountGrowth: calculateGrowth(
+          currentFunding._sum.requested_amount || 0,
+          previousFunding._sum.requested_amount || 0
+        ),
+        invoiceTrends: invoiceTrends.map(trend => ({
+          date: trend.created_at,
+          amount: trend._sum.total_price || 0,
+          count: trend._count.id
+        })),
+        statusDistribution: statusDistribution.map(status => ({
+          name: status.status,
+          value: status._count.id
+        })),
+        milestoneProgress: [
+          {
+            name: 'Milestones',
+            completed: completedMilestones,
+            pending: pendingMilestones
+          }
+        ],
+        userActivity: userActivity.map(activity => ({
+          date: activity.created_at,
+          activeUsers: activity._count.id,
+          newUsers: activity._count.id
+        }))
+      };
+    } catch (error) {
+      console.error('Error fetching report data:', error);
+      throw new TRPCError({
+        code: 'INTERNAL_SERVER_ERROR',
+        message: 'Failed to retrieve report data'
+      });
     }
-
-    const [
-      currentInvoices,
-      previousInvoices,
-      activeUsers,
-      previousActiveUsers,
-      currentMilestones,
-      previousMilestones,
-      invoiceTrends,
-      statusDistribution,
-      milestoneProgress,
-      userActivity
-    ] = await Promise.all([
-      // Total Invoices (current period)
-      prisma.invoice.count({
-        where: { submission_date: { gte: startDate } }
-      }),
-      // Total Invoices (previous period)
-      prisma.invoice.count({
-        where: { 
-          submission_date: { 
-            gte: previousStartDate,
-            lt: startDate 
-          } 
-        }
-      }),
-      // Active Users (current period)
-      prisma.user.count({
-        where: { created_at: { gte: startDate } }
-      }),
-      // Active Users (previous period)
-      prisma.user.count({
-        where: { 
-          created_at: { 
-            gte: previousStartDate,
-            lt: startDate 
-          } 
-        }
-      }),
-      // Total Milestones (current period)
-      prisma.milestone.count({
-        where: { created_at: { gte: startDate } }
-      }),
-      // Total Milestones (previous period)
-      prisma.milestone.count({
-        where: { 
-          created_at: { 
-            gte: previousStartDate,
-            lt: startDate 
-          } 
-        }
-      }),
-      // Invoice Trends
-      prisma.invoice.groupBy({
-        by: ['submission_date'],
-        where: { submission_date: { gte: startDate } },
-        _count: { id: true },
-        _sum: { total_price: true },
-        orderBy: { submission_date: 'asc' }
-      }),
-      // Status Distribution
-      prisma.invoice.groupBy({
-        by: ['status'],
-        _count: { id: true }
-      }),
-      // Milestone Progress
-      prisma.milestone.groupBy({
-        by: ['status'],
-        _count: { id: true }
-      }),
-      // User Activity
-      prisma.user.groupBy({
-        by: ['created_at'],
-        where: { created_at: { gte: startDate } },
-        _count: { id: true }
-      })
-    ]);
-
-    // Calculate total amount
-    const totalAmount = await prisma.invoice.aggregate({
-      where: { submission_date: { gte: startDate } },
-      _sum: { total_price: true }
-    });
-
-    const previousTotalAmount = await prisma.invoice.aggregate({
-      where: { 
-        submission_date: { 
-          gte: previousStartDate,
-          lt: startDate 
-        } 
-      },
-      _sum: { total_price: true }
-    });
-
-    // Calculate growth percentages
-    const calculateGrowth = (current: number, previous: number) => 
-      previous === 0 ? 0 : ((current - previous) / previous) * 100;
-
-    return {
-      totalInvoices: currentInvoices,
-      invoiceGrowth: calculateGrowth(currentInvoices, previousInvoices),
-      activeUsers,
-      userGrowth: calculateGrowth(activeUsers, previousActiveUsers),
-      totalMilestones: currentMilestones,
-      milestoneGrowth: calculateGrowth(currentMilestones, previousMilestones),
-      totalAmount: totalAmount._sum.total_price || 0,
-      amountGrowth: calculateGrowth(
-        totalAmount._sum.total_price || 0,
-        previousTotalAmount._sum.total_price || 0
-      ),
-      invoiceTrends: invoiceTrends.map(trend => ({
-        date: trend.submission_date,
-        amount: trend._sum.total_price || 0,
-        count: trend._count.id
-      })),
-      statusDistribution: statusDistribution.map(status => ({
-        name: status.status,
-        value: status._count.id
-      })),
-      milestoneProgress: [
-        {
-          name: 'Milestones',
-          completed: milestoneProgress.find(m => m.status === 'APPROVED')?._count.id || 0,
-          pending: milestoneProgress.find(m => m.status === 'PENDING')?._count.id || 0
-        }
-      ],
-      userActivity: userActivity.map(activity => ({
-        date: activity.created_at,
-        activeUsers: activity._count.id,
-        newUsers: activity._count.id
-      }))
-    };
   });
 
   export const getFundingRequest = adminProcedure.input(z.object({id: z.string()})).query(async ({input}) => {
@@ -1080,3 +1260,215 @@ export const markNotificationAsRead = adminProcedure
 
     return notification;
   });
+
+export const assignInvoicesToAdmin = headOfCreditProc
+  .input(
+    z.object({
+      invoice_ids: z.array(z.string()),
+      admin_id: z.string(),
+    })
+  )
+  .mutation(async ({ input }) => {
+    const { invoice_ids, admin_id } = input;
+
+    // Verify admin is CREDIT_OPS_LEAD
+    const adminClaim = await prisma.claim.findFirst({
+      where: {
+        user_id: admin_id,
+        role_name: BLOCK_PERMISSIONS.CREDIT_OPS_LEAD,
+        active: true,
+      },
+    });
+
+    if (!adminClaim) {
+      throw new TRPCError({
+        code: 'BAD_REQUEST',
+        message: 'Selected admin must be a Credit Ops Lead',
+      });
+    }
+
+    // Update invoices
+    await prisma.invoice.updateMany({
+      where: {
+        id: {
+          in: invoice_ids,
+        },
+      },
+      data: {
+        assigned_admin_id: admin_id,
+      },
+    });
+
+    return true;
+  });
+
+export const getCreditOpsLeads = coSignMilestoneProc
+  .query(async () => {
+    const creditOpsLeads = await prisma.admin.findMany({
+      where: {
+        claims: {
+          some: {
+            role_name: BLOCK_PERMISSIONS.CREDIT_OPS_LEAD,
+            active: true,
+          },
+        },
+      },
+      include: {
+        assigned_invoices: {
+          where: {
+            status: 'PENDING',
+          },
+        },
+      },
+    });
+   
+    return creditOpsLeads.map(admin => ({
+      id: admin.id,
+      name: admin.name,
+      email: admin.email,
+      pending_invoices: admin.assigned_invoices.length,
+    }));
+  });
+
+export const coSignMilestone = headOfCreditProc
+  .input(z.object({
+    milestone_id: z.string(),
+  }))
+  .mutation(async ({ input, ctx }) => {
+    const { milestone_id } = input;
+
+    // Check if milestone is approved
+    const milestone = await prisma.milestone.findFirst({
+      where: {
+        id: milestone_id,
+        status: ApprovalStatus.APPROVED,
+        is_cosigned: false,
+      },
+    });
+
+    if (!milestone) {
+      throw new TRPCError({
+        code: 'BAD_REQUEST',
+        message: 'Milestone must be approved before co-signing',
+      });
+    }
+
+    // Co-sign the milestone and update payment status
+    const updatedMilestone = await prisma.milestone.update({
+      where: { id: milestone_id },
+      data: {
+        cosigned_by_id: ctx.session.user.id,
+        payment_status: PaymentStatus.APPROVED,
+      },
+    });
+
+    // Create notification
+    await createNotification(
+      `Milestone has been co-signed and approved for payment`,
+      NotificationType.MILESTONE_STATUS_UPDATE,
+      milestone_id,
+      milestone.user_id,
+      ctx.session
+    );
+
+    return updatedMilestone;
+  });
+
+export const approveMilestonePayment = headOfCreditProc
+  .input(z.object({
+    milestone_id: z.string(),
+  }))
+  .mutation(async ({ input, ctx }) => {
+    const { milestone_id } = input;
+
+    const permissionResult = await getUserPermissions(ctx.session);
+    
+    const isHeadOfCredit = permissionResult.hasPermission("HEAD_OF_CREDIT")
+    const isCreditOpsLead = permissionResult.hasPermission("CREDIT_OPS_LEAD")
+
+    // Check if milestone is co-signed
+    const milestone = await prisma.milestone.findFirst({
+      where: {
+        id: milestone_id,
+        status: ApprovalStatus.APPROVED,
+        ...(isHeadOfCredit ? {cosigned_by_id: ctx.session.user.id} : {}),
+        ...(isCreditOpsLead ? {second_level_co_sign_id: ctx.session.user.id} : {}),
+        payment_approved: false,
+      },
+    });
+
+    if (!milestone) {
+      throw new TRPCError({
+        code: 'BAD_REQUEST',
+        message: 'Milestone must be co-signed before approving payment',
+      });
+    }
+
+    if(isHeadOfCredit){
+    await prisma.milestone.update({
+      where: { id: milestone_id },
+      data: {
+        payment_status: 'APPROVED',
+        payment_approved: true,
+        payment_approved_at: new Date(),
+        payment_approved_by_id: ctx.session.user.id,
+      },
+    });
+    }
+
+    return milestone;
+  });
+
+export const markInvoiceDelivered = createProcedure(BLOCK_PERMISSIONS.MARK_OFF_INVOICES_AS_DELIVERED)
+  .input(z.object({
+    invoice_id: z.string(),
+  }))
+  .mutation(async ({ input, ctx }) => {
+    const { invoice_id } = input;
+
+    // Check if invoice exists and is in APPROVED status
+    const invoice = await prisma.invoice.findFirst({
+      where: {
+        id: invoice_id,
+        status: ApprovalStatus.APPROVED,
+      },
+      include: {
+        user: true,
+      },
+    });
+
+    if (!invoice) {
+      throw new TRPCError({
+        code: 'BAD_REQUEST',
+        message: 'Invoice must be approved before marking as delivered',
+      });
+    }
+
+    // Update invoice status
+    const updatedInvoice = await prisma.invoice.update({
+      where: { id: invoice_id },
+      data: {
+        status: ApprovalStatus.FULLY_DELIVERED,
+      },
+    });
+
+    // Create notification for Collections team
+    await createNotification(
+      `Invoice ${invoice.invoice_number} has been marked as delivered and is ready for collection`,
+      NotificationType.INVOICE_STATUS_UPDATE,
+      invoice_id,
+      invoice.user_id,
+      ctx.session
+    );
+
+    return updatedInvoice;
+  });
+
+
+  export const checkPermission = publicProcedure.input(z.object({
+    permission: z.string(),
+  })).query(async ({input, ctx}) => {
+    const {permission} = input
+    const userPermission = await prisma.claim.findFirst({where: {role_name: permission, user_id: ctx.session?.user.id ?? '', active: true}})
+    return userPermission ? true : false
+  })
