@@ -60,7 +60,7 @@ export default function KeyBenefitsSection() {
                     <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
                     <polyline points="22 4 12 14.01 9 11.01" />
                   </svg>
-                  <span>Effortless Integration: Seamlessly integrate vendor financing into your processes with BlocHQ&apos;s technology.</span>
+                  <span>Effortless Integration: Seamlessly integrate vendor financing into your processes with Bloc&apos;s technology.</span>
                 </li>
                 <li className="flex items-center space-x-3">
                   <svg

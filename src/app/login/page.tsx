@@ -15,48 +15,58 @@ export default function LoginPage() {
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
   const [showPassword, setShowPassword] = useState(false)
+  const [isLoading, setIsLoading] = useState(false)
   const router = useRouter()
   const { toast } = useToast()
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setError('');
+    setIsLoading(true);
   
- 
-    const res = await signIn('credentials', {
-      redirect: false,
-      email,
-      password,
-    });
-  
-    if (res?.error) {
-      
-      setError(res.error);
-    } else {
-      
-      const session = await getSession();
-  
-     
-      if (session?.user.role === 'ADMIN') {
+    try {
+      const res = await signIn('credentials', {
+        redirect: false,
+        email,
+        password,
+      });
+    
+      if (res?.error) {
+        setError(res.error);
         toast({
-          title: "Login successful",
-          variant: "default",
+          title: "Login failed",
+          description: res.error,
+          variant: "destructive",
         });
-        router.push('/admin/dashboard');  
-      } else if (session?.user.role === 'USER') {
-        toast({
-          title: "Login successful",
-          variant: "default",
-        });
-        router.push('/dashboard');  
       } else {
-       
-        toast({
-          title: "Login successful",
-          variant: "default",
-        });
-        router.push('/dashboard'); 
+        const session = await getSession();
+        
+        // Check if the user has admin claims
+        const hasAdminClaims = (session?.user.permissions ?? []).length > 0;
+    
+        if (hasAdminClaims) {
+          toast({
+            title: "Welcome back, Admin",
+            description: "Login successful",
+          });
+          router.push('/admin/dashboard');
+        } else {
+          toast({
+            title: "Welcome back",
+            description: "Login successful",
+          });
+          router.push('/dashboard');
+        }
       }
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "An unexpected error occurred",
+        variant: "destructive",
+      });
+      console.error(error);
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -76,6 +86,7 @@ export default function LoginPage() {
               onChange={(e) => setEmail(e.target.value)}
               placeholder="Enter your E-Mail Address"
               required
+              disabled={isLoading}
             />
           </div>
           <div className="space-y-2">
@@ -88,6 +99,7 @@ export default function LoginPage() {
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="Enter your Password"
                 required
+                disabled={isLoading}
               />
               <button
                 type="button"
@@ -108,8 +120,8 @@ export default function LoginPage() {
             </Link>
           </div>
           {error && <p className="text-red-500 text-sm">{error}</p>}
-          <Button type="submit" className="w-full">
-            Log In
+          <Button type="submit" className="w-full" disabled={isLoading}>
+            {isLoading ? 'Logging in...' : 'Log In'}
           </Button>
         </form>
         <div className="text-center">

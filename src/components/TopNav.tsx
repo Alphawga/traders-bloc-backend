@@ -5,11 +5,6 @@ export default function TopNav() {
     <header className="w-full py-4 px-4 sm:px-6 lg:px-8 bg-white border-b border-gray-200">
       <div className="container mx-auto flex items-center justify-between">
         <Link href="/" className="flex items-center space-x-2">
-          <svg className="w-8 h-8" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <path d="M12 2L2 7L12 12L22 7L12 2Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-            <path d="M2 17L12 22L22 17" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-            <path d="M2 12L12 17L22 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-          </svg>
           <span className="text-xl font-bold">Traders</span>
         </Link>
         {/* <nav className="hidden md:flex space-x-4">

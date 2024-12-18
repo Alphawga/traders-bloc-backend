@@ -1,15 +1,26 @@
-import 'next-auth';
+import { KYCStatus } from "@prisma/client"
+import "next-auth"
 
-declare module 'next-auth' {
-    interface User {
-        role: 'USER' | 'ADMIN' | 'SUPER_ADMIN'; // Define your role types
-      }
+declare module "next-auth" {
   interface Session {
-    
     user: {
-      id: string;
-      email: string;
-      role: 'USER' | 'ADMIN' | 'SUPER_ADMIN';
-    } & DefaultSession['user'];
+      id: string
+      email: string
+      role: string
+      is_email_verified: boolean
+      kyc_status: KYCStatus
+      can_create_invoice: boolean
+      permissions: string[]
+    }
   }
-}
+
+  interface User {
+    id: string
+    email: string
+    role: string
+    is_email_verified: boolean
+    kyc_status: KYCStatus
+    can_create_invoice: boolean
+    permissions: string[]
+  }
+} 

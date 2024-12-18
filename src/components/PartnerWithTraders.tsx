@@ -8,7 +8,7 @@ export default function PartnerWithTraders() {
           <div className="space-y-2">
             <h2 className="text-2xl font-bold tracking-tighter sm:text-3xl md:text-4xl lg:text-5xl">Empower Your Vendors. Streamline Your Supply Chain.</h2>
             <p className="mx-auto max-w-[700px] text-gray-400 md:text-xl/relaxed lg:text-base/relaxed xl:text-xl/relaxed dark:text-gray-400">
-              Build trust with vendors by offering financing. Eliminate supply chain delays. Powered by BlocHQ&apos;s robust fintech
+              Build trust with vendors by offering financing. Eliminate supply chain delays. Powered by Bloc&apos;s robust fintech
               infrastructure.
             </p>
           </div>

@@ -5,14 +5,16 @@ import { useRouter } from 'next/navigation'
 import Image from 'next/image'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { Clock, DollarSign, FileText, Link, UserCheck } from 'lucide-react'
+import { Clock, DollarSign, FileText, UserCheck } from 'lucide-react'
 import { trpc } from '@/app/_providers/trpc-provider'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { Select, SelectItem, SelectTrigger, SelectValue, SelectContent } from '@/components/ui/select'
+
 
 export default function AdminDashboard() {
   const router = useRouter()
-  const { data: dashboardSummary, isLoading } = trpc.getAdminDashboardSummary.useQuery()
+  const { data: dashboardSummary, isLoading, error } = trpc.getAdminDashboardSummary.useQuery()
   const [greeting, setGreeting] = useState('')
+
 
   useEffect(() => {
     const hour = new Date().getHours()
@@ -21,22 +23,59 @@ export default function AdminDashboard() {
     else setGreeting('Good Evening')
   }, [])
 
+  // Define quick links based on user's claims
   const quickLinks = [
-    { title: 'KYC Reviews', icon: <UserCheck className="h-5 w-5" />, href: '/admin/kyc-reviews' },
-    { title: 'Invoice Approvals', icon: <FileText className="h-5 w-5" />, href: '/admin/invoice-review' },
-    { title: 'Funding Requests', icon: <DollarSign className="h-5 w-5" />, href: '/admin/funding-requests' },
-  ]
-
-  const summaryData = [
-    { title: 'Pending Invoices', value: dashboardSummary?.pendingInvoices || 0, change: '+20%', changeColor: 'text-green-600' },
-    { title: 'Pending Funding Request', value: dashboardSummary?.pendingFundRequest || 0, change: '-50%', changeColor: 'text-red-600' },
-    { title: 'Total funded', value: `$${dashboardSummary?.totalFunded.toLocaleString()}`, change: '+$2,000', changeColor: 'text-green-600' },
-    { title: 'Pending Milestone Reviews', value: dashboardSummary?.pendingMilestone || 0, change: '0%', changeColor: 'text-gray-600' },
+    {
+      title: 'KYC Reviews',
+      icon: <UserCheck className="h-5 w-5" />,
+      href: '/admin/kyc-reviews'
+    },
+    {
+      title: 'Invoice Approvals',
+      icon: <FileText className="h-5 w-5" />,
+      href: '/admin/invoices'
+    },
+    {
+      title: 'Funding Requests',
+      icon: <DollarSign className="h-5 w-5" />,
+      href: '/admin/funding-requests'
+    },
   ]
 
   if (isLoading) {
-    return <div>Loading...</div>
+    return <div className="flex items-center justify-center h-screen">Loading...</div>
   }
+
+  if (error) {
+    return <div className="text-red-500">Error loading dashboard data</div>
+  }
+
+  const summaryData = [
+    {
+      title: 'Pending Invoices',
+      value: dashboardSummary?.pendingInvoices || 0,
+      icon: <FileText className="h-5 w-5" />,
+      href: '/admin/invoices?status=PENDING'
+    },
+    {
+      title: 'Pending Funding Request',
+      value: dashboardSummary?.pendingFundRequest || 0,
+      icon: <DollarSign className="h-5 w-5" />,
+      href: '/admin/funding-requests?status=PENDING'
+    },
+    {
+      title: 'Total Funded',
+      value: `$${(dashboardSummary?.totalFunded || 0).toLocaleString()}`,
+      icon: <DollarSign className="h-5 w-5" />,
+      href: '/admin/funding-requests'
+    },
+    {
+      title: 'Pending Milestone Reviews',
+      value: dashboardSummary?.pendingMilestone || 0,
+      icon: <Clock className="h-5 w-5" />,
+      href: '/admin/milestones?status=PENDING'
+    },
+  ]
 
   return (
     <div className="container mx-auto px-4 py-8">      
@@ -84,7 +123,12 @@ export default function AdminDashboard() {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">{item.value}</div>
-              <p className={`text-xs ${item.changeColor}`}>{item.change}</p>
+              <div className="mt-2">
+                <Button variant="outline" className="w-full justify-start">
+                  {item.icon}
+                  <span>{item.title}</span>
+                </Button>
+              </div>
             </CardContent>
           </Card>
         ))}
@@ -95,7 +139,6 @@ export default function AdminDashboard() {
           <h2 className="text-xl font-bold mb-4">Notifications</h2>
           <div className="space-y-4">
             {dashboardSummary?.unreadNotifications.slice(0, 2).map((notification, index) => (
-              <Link href={notification.link ?? ""} key={index}>
               <div key={index} className="flex items-center space-x-4">
                 <div className="w-12 h-12 rounded-lg overflow-hidden">
                   <Image src={`/images/not${index + 1}.png`} alt={`Notification ${index + 1}`} width={48} height={48} />
@@ -104,10 +147,9 @@ export default function AdminDashboard() {
                   <p className="font-medium">{notification.type}</p>
                   <p className="text-sm text-gray-500">{notification.message}</p>
                   <p className="text-sm text-gray-500">{notification.created_at.toLocaleString()}</p>
-                    </div>
-                  </div>
-                </Link>
-              ))}
+                </div>
+              </div>
+            ))}
           </div>
         </div>
 

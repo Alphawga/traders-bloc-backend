@@ -12,6 +12,7 @@ import { Button } from '@/components/ui/button'
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet"
 import { MenuIcon } from 'lucide-react'
 import { Header } from '@/components/header'
+import { VerificationCheck } from "@/components/verification-check"
 
 interface UserLayoutProps {
   children: React.ReactNode
@@ -85,7 +86,9 @@ export default function UserLayout({ children }: UserLayoutProps) {
       <div className="flex-1 flex flex-col overflow-hidden  max-h-screen">
         <Header />
         <main className="flex-1 overflow-y-auto p-6">
-          {children}
+          <VerificationCheck>
+            {children}
+          </VerificationCheck>
         </main>
       </div>
     </div>
