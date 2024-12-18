@@ -7,7 +7,6 @@ import { Button } from "@/components/ui/button"
 import { HomeIcon, FileTextIcon, CreditCardIcon, DollarSignIcon, BarChartIcon, UserIcon, LogOutIcon, KeyRoundIcon, UsersIcon } from 'lucide-react'
 import { signOut } from 'next-auth/react'
 import { usePermission } from "@/hooks/use-permission"
-import { BLOCK_PERMISSIONS } from "@/lib/contants"
 
 export function AdminSidebar({ className }: React.HTMLAttributes<HTMLDivElement>) {
   const pathname = usePathname()

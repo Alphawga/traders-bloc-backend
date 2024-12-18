@@ -2,11 +2,13 @@ import { superAdminProcedure } from '../trpc';
 import { z } from 'zod';
 import prisma from '@/lib/prisma';
 import bcrypt from 'bcrypt';
-import { logAdminActivity } from '@/lib/helper-function';
+import { createNotification, logAdminActivity } from '@/lib/helper-function';
 import { TRPCError } from '@trpc/server';
 import { createProcedure } from '../context';
 import { BLOCK_PERMISSIONS } from '@/lib/contants';
-import { ApprovalStatus, Prisma } from '@prisma/client';
+import { ApprovalStatus, NotificationType, Prisma } from '@prisma/client';
+import { createAdminSchema, createRoleSchema } from '@/lib/dtos';
+import { sendEmail } from '@/lib/email-service';
 
 
 const updateAdminSchema = z.object({
@@ -27,7 +29,7 @@ const updateAdminSchema = z.object({
           id: true,
           email: true,
           name: true,
-          role: true,
+
         },
       });
   
@@ -57,61 +59,67 @@ const updateAdminSchema = z.object({
   
       return { message: 'Admin account deleted' };
     });
-const updatePermissionsSchema = z.object({
-  admin_id: z.string(),
-  role: z.enum(['ADMIN', 'SUPER_ADMIN']),
-});
 
-export const updateAdminPermissions = superAdminProcedure
-  .input(updatePermissionsSchema)
-  .mutation(async ({ input }) => {
-    const { admin_id, role } = input;
 
-    const updatedAdmin = await prisma.admin.update({
-      where: { id: admin_id },
-      data: { role },
-      select: {
-        id: true,
-        email: true,
-        name: true,
-        role: true,
-      },
-    });
-
-    if (!updatedAdmin) {
-      throw new Error('Admin not found');
-    }
-
-    return updatedAdmin;
-  });
-const createAdminSchema = z.object({
-  email: z.string().email(),
-  name: z.string().min(2),
-  password: z.string().min(8),
-  role: z.enum(['ADMIN']),
-});
 
 export const createAdmin = superAdminProcedure
   .input(createAdminSchema)
-  .mutation(async ({ input }) => {
+  .mutation(async ({ input, ctx }) => {
     const { email, name, password, role } = input;
+
+    // Check if email already exists
+    const existingAdmin = await prisma.admin.findUnique({
+      where: { email },
+    });
+
+    if (existingAdmin) {
+      throw new TRPCError({
+        code: 'CONFLICT',
+        message: 'An admin with this email already exists',
+      });
+    }
 
     const hashedPassword = await bcrypt.hash(password, 10);
 
+    // Create admin with role
     const newAdmin = await prisma.admin.create({
       data: {
         email,
         name,
         password: hashedPassword,
-        role,
+        claims: {
+          create: {
+            role: {
+              connect: {
+                name: role
+              }
+            },
+            type: 'ROLE'
+          }
+        }
       },
-      select:{
-        email:true
+      include: {
+        claims: {
+          include: {
+            role: true
+          }
+        }
       }
     });
 
+    // Log activity
+    await logAdminActivity(
+      ctx.session,
+      `Created new admin: ${email} with role: ${role}`,
+      "ADMIN_CREATED"
+    );
 
-    return newAdmin;
+    return {
+      id: newAdmin.id,
+      email: newAdmin.email,
+      name: newAdmin.name,
+      role: newAdmin.claims[0]?.role?.name || 'No Role'
+    };
   });
 
 const headOfCreditProc = createProcedure(BLOCK_PERMISSIONS.OVERSEE_CREDIT_OPERATIONS_PIPELINE);
@@ -250,7 +258,6 @@ export const getRoles = headOfCreditProc.query(async () => {
       active: true
     },
     select: {
-      id: true,
       name: true
     }
   });
@@ -300,26 +307,6 @@ export const completeInvoiceAndNotifyCollections = headOfCreditProc
       },
     });
 
-    // Create notification for collections team
-    await createNotification(
-      `Invoice #${invoice.invoice_number} is ready for collection. Total amount: $${totalAmount}`,
-      NotificationType.INVOICE_STATUS_UPDATE,
-      `/admin/invoices/${invoiceId}`,
-      // Get collections team users
-      await prisma.admin.findMany({
-        where: {
-          claims: {
-            some: {
-              role: {
-                name: BLOCK_PERMISSIONS.COLLECTIONS
-              }
-            }
-          }
-        }
-      }).then(admins => admins.map(admin => admin.id))
-    );
-
-    // Send email to collections team
     const collectionsTeam = await prisma.admin.findMany({
       where: {
         claims: {
@@ -332,23 +319,34 @@ export const completeInvoiceAndNotifyCollections = headOfCreditProc
       }
     });
 
+    for (const collector of collectionsTeam) {  
+      // Create notification for collections team
+      await createNotification(
+        `Invoice #${invoice.invoice_number} is ready for collection. Total amount: $${totalAmount}`,
+        NotificationType.INVOICE_STATUS_UPDATE,
+        `/admin/invoices/${invoiceId}`,
+        collector.id  
+      );
+    }
+
+    // Send email to collections team
     for (const collector of collectionsTeam) {
       await sendEmail({
         to: collector.email,
         subject: `New Collection Assignment - Invoice #${invoice.invoice_number}`,
-        template: 'collection-assignment',
+        templateName: 'collection-assignment',
         data: {
           recipientName: collector.name,
           invoiceNumber: invoice.invoice_number,
           vendorName: invoice.vendor.name,
-          totalAmount: totalAmount,
+          totalAmount: totalAmount.toFixed(2),
           milestones: invoice.milestones.map(m => ({
             title: m.title,
-            amount: m.payment_amount
+            amount: Number(m.payment_amount).toFixed(2)
           })),
           link: `${process.env.NEXT_PUBLIC_APP_URL}/admin/invoices/${invoiceId}`
         }
-      });
+      } as const);
     }
 
     // Log activity
@@ -360,3 +358,65 @@ export const completeInvoiceAndNotifyCollections = headOfCreditProc
 
     return { success: true };
   });
+
+export const createRole = headOfCreditProc
+  .input(createRoleSchema)
+  .mutation(async ({ input, ctx }) => {
+    const { name, permissions } = input;
+
+    // Check if role already exists
+    const existingRole = await prisma.role.findUnique({
+      where: { name },
+    });
+
+    if (existingRole) {
+      throw new TRPCError({
+        code: 'CONFLICT',
+        message: 'A role with this name already exists',
+      });
+    }
+
+    // Create role with permissions
+    const newRole = await prisma.role.create({
+      data: {
+        name,
+        permissions: {
+          create: permissions.map(permissionId => ({
+            active: true,
+            permission: {
+              connect: {
+                id: permissionId
+              }
+            }
+          }))
+        }
+      },
+      include: {
+        permissions: {
+          include: {
+            permission: true
+          }
+        }
+      }
+    });
+
+    // Log activity
+    await logAdminActivity(
+      ctx.session,
+      `Created new role: ${name} with ${permissions.length} permissions`,
+      "ADMIN_CREATED"
+    );
+
+    return newRole;
+  });
+
+export const getAllPermissions = headOfCreditProc.query(async () => {
+  return prisma.permission.findMany({
+    where: {
+      active: true
+    },
+    orderBy: {
+      module: 'asc'
+    }
+  });
+});

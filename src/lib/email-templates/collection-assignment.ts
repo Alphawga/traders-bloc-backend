@@ -14,12 +14,12 @@ export const collectionAssignmentTemplate = `
   <div style="margin: 20px 0; padding: 15px; border: 1px solid #ddd; border-radius: 5px;">
     <p><strong>Invoice Number:</strong> {{invoiceNumber}}</p>
     <p><strong>Vendor:</strong> {{vendorName}}</p>
-    <p><strong>Total Amount:</strong> ${{totalAmount}}</p>
+    <p><strong>Total Amount:</strong> N02020</p>
     
     <h3>Milestones:</h3>
     <ul>
       {{#each milestones}}
-      <li>{{title}} - ${{amount}}</li>
+      <li>{{title}} - N02020</li>
       {{/each}}
     </ul>
   </div>

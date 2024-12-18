@@ -23,7 +23,7 @@ export const getAllMilestones = headOfCreditProc
   .input(
     z.object({
       search: z.string().optional(),
-      status: z.enum(["PENDING", "APPROVED", "REJECTED", "NOT_SUBMITTED"]).optional(),
+      status: z.nativeEnum(ApprovalStatus).optional(),
       page: z.number().default(1),
       limit: z.number().default(10),
       sortBy: z.string().optional(),
@@ -291,7 +291,7 @@ export const updateMilestoneSatus = adminProcedure
   export const getAllKYCDocuments = adminProcedure
   .input(z.object({
     search: z.string().optional(),
-    status: z.enum(['PENDING', 'APPROVED', 'REJECTED', 'NOT_SUBMITTED']).optional(),
+    status: z.nativeEnum(ApprovalStatus).optional(),
     page: z.number().default(1),
     limit: z.number().default(10),
     sortBy: z.string().optional(),
@@ -505,7 +505,9 @@ export const updateKYCDocument = adminProcedure
       data: {
         status,
         review_date: new Date(),
-        reviewed_by: ctx.session.user.id,
+        reviewed_by: {
+          connect: { id: ctx.session.user.id }
+        },
       },
     });
     await createNotification(
@@ -530,7 +532,9 @@ export const updateFundingRequest = adminProcedure
       data: {
         status,
         review_date: new Date(),
-        reviewed_by: ctx.session.user.id,
+        reviewed_by: {
+          connect: { id: ctx.session.user.id }
+        },
       },
     });
 
@@ -897,7 +901,7 @@ export const getAllInvoices = createProcedure()
 
 export const updateAdminData = adminProcedure
   .input(adminUpdateSchema)
-  .mutation(async ({ ctx, input }) => {
+  .mutation(async ({  input }) => {
     const { id, email, name,  current_password, new_password } = input;
     
   
@@ -910,13 +914,7 @@ export const updateAdminData = adminProcedure
     });
 
 
-    if (existingAdmin.role !== ctx.session.user.role && 
-        ctx.session.user.role !== 'SUPER_ADMIN') {
-      throw new TRPCError({
-        code: 'FORBIDDEN',
-        message: 'Insufficient permissions to modify admin role',
-      });
-    }
+
 
     // Handle password update if provided
     let password_hash: string | undefined;
@@ -1136,7 +1134,7 @@ export const updateAdminData = adminProcedure
           previousFunding._sum.requested_amount || 0
         ),
         invoiceTrends: invoiceTrends.map(trend => ({
-          date: trend.created_at,
+          date: trend.submission_date,
           amount: trend._sum.total_price || 0,
           count: trend._count.id
         })),
@@ -1342,7 +1340,6 @@ export const coSignMilestone = headOfCreditProc
       where: {
         id: milestone_id,
         status: ApprovalStatus.APPROVED,
-        is_cosigned: false,
       },
     });
 

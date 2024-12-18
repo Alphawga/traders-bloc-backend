@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -8,7 +8,7 @@ import { trpc } from "@/app/_providers/trpc-provider"
 import { useToast } from "@/hooks/use-toast"
 import { CheckCircle2, XCircle, Loader2 } from "lucide-react"
 
-export default function VerifyEmail() {
+function VerifyEmailContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const { toast } = useToast()
@@ -41,7 +41,7 @@ export default function VerifyEmail() {
     } else {
       setVerificationStatus('error')
     }
-  }, [searchParams])
+  }, [searchParams, verifyEmail])
 
   return (
     <div className="container max-w-md mx-auto mt-20">
@@ -80,7 +80,7 @@ export default function VerifyEmail() {
           )}
           {verificationStatus === 'error' && (
             <>
-              <p>We couldn't verify your email. The link may be expired or invalid.</p>
+              <p>We couldn&apos;t verify your email. The link may be expired or invalid.</p>
               <Button 
                 onClick={() => router.push('/resend-verification')}
                 className="w-full"
@@ -92,5 +92,13 @@ export default function VerifyEmail() {
         </CardContent>
       </Card>
     </div>
+  )
+}
+
+export default function VerifyEmail() {
+  return (
+    <Suspense fallback={<div>Loading...</div>}>
+      <VerifyEmailContent />
+    </Suspense>
   )
 } 

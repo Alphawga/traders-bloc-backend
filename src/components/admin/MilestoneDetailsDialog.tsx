@@ -61,7 +61,7 @@ export function MilestoneDetailsDialog({ isOpen, onClose, milestone, invoice }: 
                 <p className="text-gray-500">Status:</p>
                 <p>{milestone.status}</p>
                 <p className="text-gray-500">Co-signed:</p>
-                <p>{milestone.is_cosigned ? `Yes - by ${milestone.cosigned_by?.name}` : 'No'}</p>
+                <p>{milestone.cosigned_by ? `Yes - by ${milestone.cosigned_by?.name}` : 'No'}</p>
               </div>
 
               {/* Supporting Document Preview */}
@@ -100,7 +100,7 @@ export function MilestoneDetailsDialog({ isOpen, onClose, milestone, invoice }: 
           </div>
 
           <div className="flex justify-end gap-4 mt-6">
-            {milestone.status === ApprovalStatus.APPROVED && !milestone.is_cosigned && (
+            {milestone.status === ApprovalStatus.APPROVED && !milestone.cosigned_by && (
               <Button onClick={handleCoSign}>
                 Co-sign Milestone
               </Button>

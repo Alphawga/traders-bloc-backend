@@ -28,14 +28,6 @@ import {
   PaginationNext,
   PaginationPrevious,
 } from "@/components/ui/pagination"
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-} from "@/components/ui/dialog"
 import { toast } from "@/hooks/use-toast"
 import { format, isBefore, isToday, startOfDay, endOfDay, startOfWeek, endOfWeek, startOfMonth, endOfMonth } from "date-fns"
 import { ApprovalStatus, Invoice, Milestone, Vendor } from "@prisma/client"
@@ -53,6 +45,8 @@ import { MilestoneDetailsDialog } from "@/components/admin/MilestoneDetailsDialo
 import { InvoiceDetailsDialog } from "@/components/admin/InvoiceDetailsDialog"
 import { usePermission } from "@/hooks/use-permission"
 import { CompleteInvoiceDialog } from "@/components/admin/CompleteInvoiceDialog"
+import { AssignAnalystDialog } from "@/components/admin/AssignAnalystDialog"
+import { AssignInvoicesDialog } from "@/components/admin/AssignInvoicesDialog"
 
 
 type DueDateFilter = 'all' | 'overdue' | 'due-today' | 'due-this-week' | 'due-this-month';
@@ -104,7 +98,6 @@ function InvoiceReview() {
     assignmentStatus: 'all',
   });
 
-  const [, setOpenDialog] = useState(false);
   const [expanded, setExpanded] = useState<ExpandedState>({});
   const [selectedInvoices, setSelectedInvoices] = useState<string[]>([]);
   const [showAssignDialog, setShowAssignDialog] = useState(false);
@@ -116,7 +109,6 @@ function InvoiceReview() {
   const [selectedMilestoneForAssignment, setSelectedMilestoneForAssignment] = useState<string | null>(null);
 
   const { data: invoiceData, isLoading, refetch } = trpc.getAllInvoices.useQuery(filters);
-  const { data: creditOpsLeads } = trpc.getCreditOpsLeads.useQuery();
   const { hasPermission } = usePermission();
   const canMarkDelivered = hasPermission("MARK_OFF_INVOICES_AS_DELIVERED");
   const canAssignInvoices = hasPermission("ASSIGN_INVOICES_TO_CREDIT_OPS_LEADS");
@@ -124,58 +116,19 @@ function InvoiceReview() {
   const canUpdateInvoiceStatus = hasPermission("MANAGE_ASSIGNED_INVOICES");
   const canAssignMilestones = hasPermission("ASSIGN_MILESTONES_TO_ANALYSTS");
 
-  const assignInvoices = trpc.assignInvoicesToAdmin.useMutation({
-    onSuccess: () => {
-      toast({ description: "Invoices assigned successfully" });
-      setSelectedInvoices([]);
-      setShowAssignDialog(false);
-      refetch();
-    },
-  });
-
+  const utils = trpc.useUtils();
   const updateInvoiceStatus = trpc.updateInvoiceStatus.useMutation({
     onSuccess: () => {
-      toast({
-        description: "Invoice status updated successfully"
-      })
-      refetch();
-      setSelectedInvoice(null);
-      setOpenDialog(false);
-    },
-    onError: () => {
-      toast({
-        description: "Failed to update Invoice status",
-        variant: "destructive"
-      })
-    }
-  });
-
-  const { data: analysts } = trpc.getAllAnalysts.useQuery();
-  const utils = trpc.useUtils();
-
-  const assignMilestone = trpc.assignMilestoneToAnalyst.useMutation({
-    onSuccess: () => {
-      toast({ description: "Milestone assigned successfully" });
-      setShowAssignAnalystDialog(false);
-      setSelectedMilestoneForAssignment(null);
-      refetch();
+      toast({ description: "Invoice status updated successfully" })
+      refetch()
     },
     onError: (error) => {
-      toast({ 
-        description: error.message || "Failed to assign milestone", 
-        variant: "destructive" 
-      });
+      toast({ description: error.message || "Failed to update invoice status", variant: "destructive" })
     }
-  });
+  })
 
-  const handleAssignMilestone = (analystId: string) => {
-    if (selectedMilestoneForAssignment) {
-      assignMilestone.mutate({
-        milestone_id: selectedMilestoneForAssignment,
-        analyst_id: analystId,
-      });
-    }
-  };
+
+
 
   const handleUpdateInvoiceStatus = (invoiceId: string, status: ApprovalStatus) => {
     updateInvoiceStatus.mutate({ invoice_id: invoiceId, status });
@@ -297,46 +250,13 @@ function InvoiceReview() {
     }));
   };
 
-  const handleAssignInvoices = (adminId: string) => {
-    assignInvoices.mutate({
-      invoice_ids: selectedInvoices,
-      admin_id: adminId,
-    });
-  };
 
-  const [completionDialog, setCompletionDialog] = useState<{
-    isOpen: boolean
-    invoice?: InvoiceWithRelations
-  }>({
-    isOpen: false
-  })
-
-  const { mutate: completeInvoice, isLoading: isCompletingInvoice } = 
-    trpc.completeInvoiceAndNotifyCollections.useMutation({
-      onSuccess: () => {
-        toast({
-          title: "Success",
-          description: "Invoice marked as completed and sent to collections",
-        })
-        setCompletionDialog({ isOpen: false })
-        utils.getAllInvoices.invalidate()
-      },
-      onError: (error) => {
-        toast({
-          title: "Error",
-          description: error.message,
-          variant: "destructive",
-        })
-      },
-    })
 
   const areAllMilestonesApproved = (invoice: InvoiceWithRelations) => {
     return invoice.milestones?.every((m: Milestone) => m.status === 'APPROVED')
   }
 
-  const calculateTotalAmount = (milestones: Milestone[]) => {
-    return milestones.reduce((sum, m) => sum + Number(m.payment_amount), 0)
-  }
+
 
   return (
     <div className="m-4">
@@ -355,37 +275,15 @@ function InvoiceReview() {
         </div>
       )}
 
-      <Dialog open={showAssignDialog} onOpenChange={setShowAssignDialog}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Assign Invoices to Credit Ops Lead</DialogTitle>
-            <DialogDescription>
-              Select a Credit Ops Lead to assign the selected invoices
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4">
-            {creditOpsLeads?.map((admin) => (
-              <div key={admin.id} className="flex items-center justify-between p-2 border rounded">
-                <div>
-                  <p className="font-medium">{admin.name}</p>
-                  <p className="text-sm text-gray-500">{admin.email}</p>
-                </div>
-                <div className="flex items-center gap-4">
-                  <span className="text-sm text-gray-600">
-                    {admin.pending_invoices} pending invoices
-                  </span>
-                  <Button
-                    onClick={() => handleAssignInvoices(admin.id)}
-                    size="sm"
-                  >
-                    Assign
-                  </Button>
-                </div>
-              </div>
-            ))}
-          </div>
-        </DialogContent>
-      </Dialog>
+      <AssignInvoicesDialog
+        isOpen={showAssignDialog}
+        onOpenChange={setShowAssignDialog}
+        selectedInvoices={selectedInvoices}
+        onSuccess={() => {
+          setSelectedInvoices([])
+          refetch()
+        }}
+      />
 
       <div className="flex flex-col md:flex-row gap-4 mb-6">
         <div className="relative flex-grow">
@@ -517,9 +415,7 @@ function InvoiceReview() {
                          invoice.status === 'APPROVED' &&
                          areAllMilestonesApproved(invoice) && (
                           <CompleteInvoiceDialog
-                            invoiceId={invoice.id}
-                            invoiceNumber={invoice.invoice_number}
-                            milestones={invoice.milestones}
+                            invoice={invoice}
                             onSuccess={() => {
                               utils.getAllInvoices.invalidate()
                             }}
@@ -811,92 +707,16 @@ function InvoiceReview() {
         />
       )}
 
-      {/* Analyst Assignment Dialog */}
-      <Dialog open={showAssignAnalystDialog} onOpenChange={setShowAssignAnalystDialog}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Assign Milestone to Analyst</DialogTitle>
-            <DialogDescription>
-              Select an analyst to assign this milestone
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4">
-            {analysts?.map((analyst) => (
-              <div key={analyst.id} className="flex items-center justify-between p-2 border rounded">
-                <div>
-                  <p className="font-medium">{analyst.name}</p>
-                  <p className="text-sm text-gray-500">{analyst.email}</p>
-                </div>
-                <div className="flex items-center gap-4">
-                  <span className="text-sm text-gray-600">
-                    {analyst.pending_milestones} pending milestones
-                  </span>
-                  <Button
-                    onClick={() => handleAssignMilestone(analyst.id)}
-                    size="sm"
-                  >
-                    Assign
-                  </Button>
-                </div>
-              </div>
-            ))}
-          </div>
-        </DialogContent>
-      </Dialog>
-
-      <Dialog 
-        open={completionDialog.isOpen} 
-        onOpenChange={(open) => setCompletionDialog({ isOpen: open })}
-      >
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>
-              Complete Invoice #{completionDialog.invoice?.invoice_number}
-            </DialogTitle>
-            <DialogDescription>
-              All milestones are completed. This action will mark the invoice as fully treated
-              and send it to the collections department.
-            </DialogDescription>
-          </DialogHeader>
-
-          {completionDialog.invoice && (
-            <div className="space-y-4">
-              <div className="border rounded-lg p-4">
-                <h4 className="font-medium mb-2">Milestone Summary</h4>
-                {completionDialog.invoice.milestones?.map((milestone: any) => (
-                  <div key={milestone.id} className="flex justify-between text-sm">
-                    <span>{milestone.title}</span>
-                    <span>${Number(milestone.payment_amount).toFixed(2)}</span>
-                  </div>
-                ))}
-                <div className="mt-2 pt-2 border-t flex justify-between font-medium">
-                  <span>Total Amount</span>
-                  <span>
-                    ${calculateTotalAmount(completionDialog.invoice.milestones || []).toFixed(2)}
-                  </span>
-                </div>
-              </div>
-            </div>
-          )}
-
-          <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => setCompletionDialog({ isOpen: false })}
-            >
-              Cancel
-            </Button>
-            <Button
-              onClick={() => completeInvoice({ 
-                invoiceId: completionDialog.invoice?.id ?? ''
-              })}
-              disabled={isCompletingInvoice}
-            >
-              {isCompletingInvoice ? "Processing..." : "Complete & Send"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+    
+      <AssignAnalystDialog
+        isOpen={showAssignAnalystDialog}
+        onOpenChange={setShowAssignAnalystDialog}
+        milestoneId={selectedMilestoneForAssignment}
+        onSuccess={() => {
+          setSelectedMilestoneForAssignment(null)
+          refetch()
+        }}
+      />
     </div>
   );
 }

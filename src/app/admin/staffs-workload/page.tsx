@@ -1,7 +1,6 @@
 'use client'
 
 import { useState } from "react"
-import { IoSearchOutline } from "react-icons/io5"
 import { trpc } from "@/app/_providers/trpc-provider"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -74,11 +73,11 @@ export default function StaffsWorkloadPage() {
     page: 1,
     limit: 10,
   })
-  const [selectedStaff, setSelectedStaff] = useState<string | null>(null)
-  const [activeTab, setActiveTab] = useState<'overview' | 'details'>('overview')
+  const [, setSelectedStaff] = useState<string | null>(null)
+  const [, setActiveTab] = useState<'overview' | 'details'>('overview')
 
   const { data: staffsData } = trpc.getStaffsWorkload.useQuery(filters)
-  const { data: roles } = trpc.getRoles.useQuery()
+    
 
   if (!hasPermission('OVERSEE_CREDIT_OPERATIONS_PIPELINE')) {
     return (

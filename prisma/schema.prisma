@@ -277,6 +277,7 @@ enum NotificationType {
   PAYMENT_APPROVED
   EMAIL_VERIFICATION
   PASSWORD_RESET
+  ADMIN_CREATED
 }
 
 model Vendor {

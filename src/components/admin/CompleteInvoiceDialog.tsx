@@ -13,24 +13,29 @@ import {
 } from "@/components/ui/dialog"
 import { useToast } from "@/hooks/use-toast"
 import { trpc } from "@/app/_providers/trpc-provider"
-import { Milestone } from "@prisma/client"
+import { Invoice, Milestone, Vendor } from "@prisma/client"
+
+interface InvoiceWithRelations extends Invoice {
+  milestones: Milestone[]
+  vendor: Vendor
+  user: {
+    first_name: string
+    last_name: string
+  }
+}
 
 interface CompleteInvoiceDialogProps {
-  invoiceId: string
-  invoiceNumber: string
-  milestones: Milestone[]
+  invoice: InvoiceWithRelations
   onSuccess?: () => void
 }
 
 export function CompleteInvoiceDialog({ 
-  invoiceId, 
-  invoiceNumber,
-  milestones,
+  invoice,
   onSuccess 
 }: CompleteInvoiceDialogProps) {
   const [isOpen, setIsOpen] = useState(false)
   const { toast } = useToast()
-  const utils = trpc.useContext()
+
 
   const { mutate: completeInvoice, isLoading } = trpc.completeInvoiceAndNotifyCollections.useMutation({
     onSuccess: () => {
@@ -50,8 +55,8 @@ export function CompleteInvoiceDialog({
     },
   })
 
-  const allMilestonesCompleted = milestones.every(m => m.status === 'APPROVED')
-  const totalAmount = milestones.reduce((sum, m) => sum + Number(m.payment_amount), 0)
+  const allMilestonesCompleted = invoice.milestones.every(m => m.status === 'APPROVED')
+  const totalAmount = invoice.milestones.reduce((sum, m) => sum + Number(m.payment_amount), 0)
 
   if (!allMilestonesCompleted) {
     return null
@@ -66,7 +71,7 @@ export function CompleteInvoiceDialog({
       </DialogTrigger>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Complete Invoice #{invoiceNumber}</DialogTitle>
+          <DialogTitle>Complete Invoice #{invoice.invoice_number}</DialogTitle>
           <DialogDescription>
             All milestones are completed. This action will mark the invoice as fully treated
             and send it to the collections department.
@@ -76,7 +81,7 @@ export function CompleteInvoiceDialog({
         <div className="space-y-4">
           <div className="border rounded-lg p-4">
             <h4 className="font-medium mb-2">Milestone Summary</h4>
-            {milestones.map((milestone) => (
+            {invoice.milestones.map((milestone) => (
               <div key={milestone.id} className="flex justify-between text-sm">
                 <span>{milestone.title}</span>
                 <span>${Number(milestone.payment_amount).toFixed(2)}</span>
@@ -97,7 +102,7 @@ export function CompleteInvoiceDialog({
             Cancel
           </Button>
           <Button
-            onClick={() => completeInvoice({ invoiceId })}
+            onClick={() => completeInvoice({ invoiceId: invoice.id })}
             disabled={isLoading}
           >
             {isLoading ? "Processing..." : "Complete & Send"}

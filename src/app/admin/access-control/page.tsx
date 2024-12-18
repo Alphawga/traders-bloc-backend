@@ -31,6 +31,10 @@ import { IoSearchOutline } from "react-icons/io5"
 import { trpc } from "@/app/_providers/trpc-provider"
 import { toast } from "@/hooks/use-toast"
 import { BLOCK_PERMISSIONS } from '@/lib/contants'
+import { CreateAdminDialog } from "@/components/admin/CreateAdminDialog"
+import { usePermission } from "@/hooks/use-permission"
+import { notFound } from 'next/navigation'
+import { CreateRoleDialog } from "@/components/admin/CreateRoleDialog"
 
 interface FilterState {
   search: string
@@ -129,9 +133,28 @@ export default function AccessControl() {
     { value: BLOCK_PERMISSIONS.COLLECTIONS, label: 'Collections' },
   ]
 
+  const utils = trpc.useUtils()
+  const { hasPermission } = usePermission()
+
+  if (!hasPermission('VIEW_ACCESS_CONTROL')) {
+    return notFound()
+  }
+
   return (
     <div className="p-6">
       <h1 className="text-2xl font-bold mb-6">Access Control</h1>
+      <div className="flex justify-end gap-4">
+        <CreateRoleDialog 
+          onSuccess={() => {
+            utils.getRoles.invalidate()
+          }}
+        />
+        <CreateAdminDialog 
+          onSuccess={() => {
+            utils.getAllAdmins.invalidate()
+          }}
+        />
+      </div>
       
       <Tabs defaultValue="users" className="w-full">
         <TabsList>
@@ -348,6 +371,7 @@ export default function AccessControl() {
           </Table>
         </TabsContent>
       </Tabs>
+     
     </div>
   )
 }
