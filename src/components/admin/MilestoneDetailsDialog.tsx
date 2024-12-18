@@ -110,6 +110,8 @@ export function MilestoneDetailsDialog({ isOpen, onClose, milestone, invoice }: 
             </Button>
           </div>
         </DialogContent>
+
+
       </Dialog>
 
       {/* Full Image Dialog */}
@@ -135,6 +137,7 @@ export function MilestoneDetailsDialog({ isOpen, onClose, milestone, invoice }: 
             className="absolute top-2 right-2"
           >
             Close
+            
           </Button>
         </DialogContent>
       </ImageDialog>
