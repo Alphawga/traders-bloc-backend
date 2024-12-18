@@ -4,11 +4,13 @@ import { usePathname } from 'next/navigation'
 import Link from 'next/link'
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
-import { HomeIcon, FileTextIcon, CreditCardIcon, DollarSignIcon, BarChartIcon, UserIcon, LogOutIcon, KeyRoundIcon } from 'lucide-react'
+import { HomeIcon, FileTextIcon, CreditCardIcon, DollarSignIcon, BarChartIcon, UserIcon, LogOutIcon, KeyRoundIcon, UsersIcon } from 'lucide-react'
 import { signOut } from 'next-auth/react'
+import { usePermission } from "@/hooks/use-permission"
 
 export function AdminSidebar({ className }: React.HTMLAttributes<HTMLDivElement>) {
   const pathname = usePathname()
+  const { hasPermission } = usePermission()
 
   return (
     <div className={cn("pb-12 w-64", className)}>
@@ -22,25 +24,33 @@ export function AdminSidebar({ className }: React.HTMLAttributes<HTMLDivElement>
             <Button variant={pathname === '/admin/dashboard' ? 'secondary' : 'ghost'} className="w-full justify-start" asChild>
               <Link href="/admin/dashboard">
                 <HomeIcon className="mr-2 h-4 w-4" />
-              Admin  Dashboard
+                Admin Dashboard
               </Link>
             </Button>
             <Button variant={pathname === '/admin/kyc-reviews' ? 'secondary' : 'ghost'} className="w-full justify-start" asChild>
               <Link href="/admin/kyc-reviews">
                 <FileTextIcon className="mr-2 h-4 w-4" />
-               KYC
+                KYC
               </Link>
             </Button>
             <Button variant={pathname === '/admin/access-control' ? 'secondary' : 'ghost'} className="w-full justify-start" asChild>
               <Link href="/admin/access-control">
                 <KeyRoundIcon className="mr-2 h-4 w-4" />
-               Access Control
+                Access Control
               </Link>
             </Button>
+            {hasPermission('OVERSEE_CREDIT_OPERATIONS_PIPELINE') && (
+              <Button variant={pathname === '/admin/staffs-workload' ? 'secondary' : 'ghost'} className="w-full justify-start" asChild>
+                <Link href="/admin/staffs-workload">
+                  <UsersIcon className="mr-2 h-4 w-4" />
+                  Staff Workload
+                </Link>
+              </Button>
+            )}
             <Button variant={pathname === '/admin/invoices' ? 'secondary' : 'ghost'} className="w-full justify-start" asChild>
               <Link href="/admin/invoices">
                 <FileTextIcon className="mr-2 h-4 w-4" />
-              Invoices
+                Invoices
               </Link>
             </Button>
             <Button variant={pathname === '/admin/milestone' ? 'secondary' : 'ghost'} className="w-full justify-start" asChild>

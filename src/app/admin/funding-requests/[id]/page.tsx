@@ -50,6 +50,7 @@ function FundingRequestDetails() {
             <p><span className="font-medium">User:</span> {request.user.first_name} {request.user.last_name}</p>
             <p><span className="font-medium">Invoice Number:</span> {request.invoice.invoice_number}</p>
             <p><span className="font-medium">Invoice Description:</span> {request.invoice.description}</p>
+            
             <p><span className="font-medium">Requested Amount:</span> ${request.requested_amount.toFixed(2)}</p>
             <p><span className="font-medium">Your Contribution:</span> ${request.your_contribution.toFixed(2)}</p>
             <p><span className="font-medium">Submission Date:</span> {format(new Date(request.submission_date), 'MMM dd, yyyy HH:mm:ss')}</p>

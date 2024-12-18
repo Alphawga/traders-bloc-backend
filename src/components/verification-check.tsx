@@ -64,7 +64,7 @@ export function VerificationCheck({ children }: { children: React.ReactNode }) {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <p>Your KYC documents are being reviewed. We'll notify you once approved.</p>
+          <p>Your KYC documents are being reviewed. We&apos;ll notify you once approved.</p>
         </CardContent>
       </Card>
     )

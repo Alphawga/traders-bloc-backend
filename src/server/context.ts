@@ -1,4 +1,3 @@
-import { BLOCK_PERMISSIONS } from "@/lib/contants";
 import { initTRPC, TRPCError } from "@trpc/server";
 import { Session } from "next-auth";
 import SuperJSON from "superjson";
@@ -62,7 +61,7 @@ export function createProcedure(requiredPermission?: string) {
     if (requiredPermission) {
       const hasPermission = await checkPermission(session.user.id, requiredPermission);
       
-      if (!hasPermission && session.user.role !== BLOCK_PERMISSIONS.ADMIN) {
+      if (!hasPermission) {
         throw new TRPCError({ 
           code: "FORBIDDEN",
           message: `Missing required permission: ${requiredPermission}`
