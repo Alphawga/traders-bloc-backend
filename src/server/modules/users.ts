@@ -6,7 +6,7 @@ import bcrypt from 'bcrypt';
 import { fundingRequestSchema, invoiceSchema, milestoneSchema, userRegistrationSchema, userUpdateSchema } from '@/lib/dtos';
 import { v2 as cloudinary } from "cloudinary";
 import { NotificationType, Prisma } from '@prisma/client';
-import { createNotification } from '@/lib/helper-function';
+import { createNotification, sendWelcomeEmail, verifyEmail } from '@/lib/helper-function';
 
 
 
@@ -53,27 +53,21 @@ export const registerUser = publicProcedure
           tax_id,
           industry,
         },
-        select:{
-          id: true,
-          first_name: true
-        }
       });
 
-      await createNotification(
-        `New user ${first_name} ${last_name} has registered`,
-        NotificationType.SYSTEM_ALERT,
-        `/user/${newUser.id}`
-      )
-      
-      return newUser;
+      // Send welcome email and create notifications
+      await sendWelcomeEmail(newUser);
+
+      return {
+        success: true,
+        message: 'Registration successful. Please check your email to verify your account.',
+      };
     } catch (error) {
       console.error('Registration error:', error);
       throw new TRPCError({
         code: 'INTERNAL_SERVER_ERROR',
         message: 'An unexpected error occurred during registration',
       });
-    } finally {
-      await prisma.$disconnect();
     }
   });
 
@@ -621,4 +615,61 @@ export const updateNotification = publicProcedure
       where: {id: notification_id}, data: {is_read}
     })
   })
+
+// Add new procedure for email verification
+export const verifyEmailToken = publicProcedure
+  .input(z.object({
+    token: z.string(),
+  }))
+  .mutation(async ({ input }) => {
+    try {
+      await verifyEmail(input.token);
+      return {
+        success: true,
+        message: 'Email verified successfully',
+      };
+    } catch (error) {
+      throw new TRPCError({
+        code: 'BAD_REQUEST',
+        message: error instanceof Error ? error.message : 'Failed to verify email',
+      });
+    }
+  });
+
+export const resendVerification = publicProcedure
+  .mutation(async ({ ctx }) => {
+    if (!ctx.session?.user?.id) {
+      throw new TRPCError({
+        code: 'UNAUTHORIZED',
+        message: 'You must be logged in'
+      });
+    }
+
+    const user = await prisma.user.findUnique({
+      where: { id: ctx.session.user.id }
+    });
+
+    if (!user) {
+      throw new TRPCError({
+        code: 'NOT_FOUND',
+        message: 'User not found'
+      });
+    }
+
+    if (user.is_email_verified) {
+      throw new TRPCError({
+        code: 'BAD_REQUEST',
+        message: 'Email already verified'
+      });
+    }
+
+    await sendWelcomeEmail({
+      id: user.id,
+      email: user.email,
+      first_name: user.first_name,
+      last_name: user.last_name
+    });
+
+    return { success: true };
+  });
 
