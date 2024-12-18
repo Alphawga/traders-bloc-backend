@@ -23,6 +23,7 @@ const roles = {
       { module: "access_control", action: BLOCK_PERMISSIONS.VIEW_USER_LIST },
       { module: "access_control", action: BLOCK_PERMISSIONS.VIEW_ADMIN_LIST },
       { module: "access_control", action: BLOCK_PERMISSIONS.MANAGE_USER_STATUS },
+      { module: "access_control", action: BLOCK_PERMISSIONS.OVERSEE_CREDIT_OPERATIONS_PIPELINE },
     ]
   },
   CREDIT_OPS_LEAD: {

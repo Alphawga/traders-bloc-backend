@@ -4,12 +4,11 @@ import { BLOCK_PERMISSIONS } from "@/lib/contants";
 export function usePermission() {
   const { data: session } = useSession();
 
-  console.log("Session in usePermission:", session);
-  console.log("Permissions in session:", session?.user?.permissions);
+ 
 
   const hasPermission = (permission: keyof typeof BLOCK_PERMISSIONS) => {
     const hasPermission = session?.user.permissions?.includes(BLOCK_PERMISSIONS[permission]) ?? false;
-    console.log(`Checking permission ${permission}:`, hasPermission);
+   
     return hasPermission;
   };
 

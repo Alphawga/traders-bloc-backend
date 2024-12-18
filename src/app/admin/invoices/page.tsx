@@ -34,10 +34,11 @@ import {
   DialogDescription,
   DialogHeader,
   DialogTitle,
+  DialogFooter,
 } from "@/components/ui/dialog"
 import { toast } from "@/hooks/use-toast"
 import { format, isBefore, isToday, startOfDay, endOfDay, startOfWeek, endOfWeek, startOfMonth, endOfMonth } from "date-fns"
-import { ApprovalStatus, Invoice, Milestone } from "@prisma/client"
+import { ApprovalStatus, Invoice, Milestone, Vendor } from "@prisma/client"
 import {  MoreHorizontal, Eye, FileText, CreditCard, Check } from "lucide-react"
 import {
   DropdownMenu,
@@ -51,6 +52,7 @@ import { Checkbox } from "@/components/ui/checkbox"
 import { MilestoneDetailsDialog } from "@/components/admin/MilestoneDetailsDialog"
 import { InvoiceDetailsDialog } from "@/components/admin/InvoiceDetailsDialog"
 import { usePermission } from "@/hooks/use-permission"
+import { CompleteInvoiceDialog } from "@/components/admin/CompleteInvoiceDialog"
 
 
 type DueDateFilter = 'all' | 'overdue' | 'due-today' | 'due-this-week' | 'due-this-month';
@@ -80,6 +82,15 @@ interface ExpandedState {
   };
 }
 
+interface InvoiceWithRelations extends Invoice {
+  milestones: Milestone[]
+  vendor: Vendor
+  user: {
+    first_name: string
+    last_name: string
+  }
+}
+
 function InvoiceReview() {
   const [filters, setFilters] = useState<FilterState>({
     search: "",
@@ -99,7 +110,7 @@ function InvoiceReview() {
   const [showAssignDialog, setShowAssignDialog] = useState(false);
   const [selectedMilestone, setSelectedMilestone] = useState<Milestone | null>(null);
   const [showMilestoneDialog, setShowMilestoneDialog] = useState(false);
-  const [selectedInvoice, setSelectedInvoice] = useState<Invoice | null>(null);
+  const [selectedInvoice, setSelectedInvoice] = useState<InvoiceWithRelations | null>(null);
   const [showInvoiceDialog, setShowInvoiceDialog] = useState(false);
   const [showAssignAnalystDialog, setShowAssignAnalystDialog] = useState(false);
   const [selectedMilestoneForAssignment, setSelectedMilestoneForAssignment] = useState<string | null>(null);
@@ -140,6 +151,7 @@ function InvoiceReview() {
   });
 
   const { data: analysts } = trpc.getAllAnalysts.useQuery();
+  const utils = trpc.useUtils();
 
   const assignMilestone = trpc.assignMilestoneToAnalyst.useMutation({
     onSuccess: () => {
@@ -292,7 +304,39 @@ function InvoiceReview() {
     });
   };
 
-  
+  const [completionDialog, setCompletionDialog] = useState<{
+    isOpen: boolean
+    invoice?: InvoiceWithRelations
+  }>({
+    isOpen: false
+  })
+
+  const { mutate: completeInvoice, isLoading: isCompletingInvoice } = 
+    trpc.completeInvoiceAndNotifyCollections.useMutation({
+      onSuccess: () => {
+        toast({
+          title: "Success",
+          description: "Invoice marked as completed and sent to collections",
+        })
+        setCompletionDialog({ isOpen: false })
+        utils.getAllInvoices.invalidate()
+      },
+      onError: (error) => {
+        toast({
+          title: "Error",
+          description: error.message,
+          variant: "destructive",
+        })
+      },
+    })
+
+  const areAllMilestonesApproved = (invoice: InvoiceWithRelations) => {
+    return invoice.milestones?.every((m: Milestone) => m.status === 'APPROVED')
+  }
+
+  const calculateTotalAmount = (milestones: Milestone[]) => {
+    return milestones.reduce((sum, m) => sum + Number(m.payment_amount), 0)
+  }
 
   return (
     <div className="m-4">
@@ -465,9 +509,23 @@ function InvoiceReview() {
                       {format(new Date(invoice.due_date), 'MMM dd, yyyy')}
                     </TableCell>
                     <TableCell>
-                      <span className={`px-2 py-1 rounded-full text-xs ${getStatusColor(invoice.status)}`}>
-                        {invoice.status}
-                      </span>
+                      <div className="flex items-center gap-2">
+                        <span className={`px-2 py-1 rounded-full text-xs ${getStatusColor(invoice.status)}`}>
+                          {invoice.status}
+                        </span>
+                        {hasPermission('OVERSEE_CREDIT_OPERATIONS_PIPELINE') && 
+                         invoice.status === 'APPROVED' &&
+                         areAllMilestonesApproved(invoice) && (
+                          <CompleteInvoiceDialog
+                            invoiceId={invoice.id}
+                            invoiceNumber={invoice.invoice_number}
+                            milestones={invoice.milestones}
+                            onSuccess={() => {
+                              utils.getAllInvoices.invalidate()
+                            }}
+                          />
+                        )}
+                      </div>
                     </TableCell>
                     {canAssignInvoices && (
                       <TableCell>
@@ -783,6 +841,60 @@ function InvoiceReview() {
               </div>
             ))}
           </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog 
+        open={completionDialog.isOpen} 
+        onOpenChange={(open) => setCompletionDialog({ isOpen: open })}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>
+              Complete Invoice #{completionDialog.invoice?.invoice_number}
+            </DialogTitle>
+            <DialogDescription>
+              All milestones are completed. This action will mark the invoice as fully treated
+              and send it to the collections department.
+            </DialogDescription>
+          </DialogHeader>
+
+          {completionDialog.invoice && (
+            <div className="space-y-4">
+              <div className="border rounded-lg p-4">
+                <h4 className="font-medium mb-2">Milestone Summary</h4>
+                {completionDialog.invoice.milestones?.map((milestone: any) => (
+                  <div key={milestone.id} className="flex justify-between text-sm">
+                    <span>{milestone.title}</span>
+                    <span>${Number(milestone.payment_amount).toFixed(2)}</span>
+                  </div>
+                ))}
+                <div className="mt-2 pt-2 border-t flex justify-between font-medium">
+                  <span>Total Amount</span>
+                  <span>
+                    ${calculateTotalAmount(completionDialog.invoice.milestones || []).toFixed(2)}
+                  </span>
+                </div>
+              </div>
+            </div>
+          )}
+
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setCompletionDialog({ isOpen: false })}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={() => completeInvoice({ 
+                invoiceId: completionDialog.invoice?.id ?? ''
+              })}
+              disabled={isCompletingInvoice}
+            >
+              {isCompletingInvoice ? "Processing..." : "Complete & Send"}
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>
