@@ -41,6 +41,7 @@ import { toast } from "@/hooks/use-toast"
 import Image from "next/image"
 import { format, isBefore, isToday, startOfDay, endOfDay, startOfWeek, endOfWeek, startOfMonth, endOfMonth } from "date-fns"
 import { ApprovalStatus } from "@prisma/client"
+import Link from "next/link"
 
 type DueDateFilter = 'all' | 'overdue' | 'due-today' | 'due-this-week' | 'due-this-month';
 
@@ -63,7 +64,7 @@ interface FilterState {
 function MilestoneReview() {
   const [filters, setFilters] = useState<FilterState>({
     search: "",
-    status: "PENDING",
+    status: undefined,
     page: 1,
     limit: 10,
     sortBy: undefined,
@@ -71,7 +72,7 @@ function MilestoneReview() {
     dueDateFilter: 'all',
   });
 
-  const [, setSelectedMilestone] = useState(null);
+  const [selectedMilestone, setSelectedMilestone] = useState<string | null>(null);
   const [openDialog, setOpenDialog] = useState(false);
 
   const { data: milestoneData, isLoading, refetch } = trpc.getAllMilestones.useQuery(filters);
@@ -248,55 +249,97 @@ function MilestoneReview() {
                     </span>
                   </TableCell>
                   <TableCell>
-                    <Dialog open={openDialog} onOpenChange={setOpenDialog}>
-                      <DialogTrigger asChild>
-                        <Button variant="outline" size="sm" className="bg-black text-white hover:bg-gray-700">View</Button>
-                      </DialogTrigger>
-                      <DialogContent className="sm:max-w-[700px]">
-                        <DialogHeader>
-                          <DialogTitle>Milestone Details</DialogTitle>
-                          <DialogDescription>
-                            Review the milestone for Invoice #{milestone.invoice.invoice_number}
-                          </DialogDescription>
-                        </DialogHeader>
-                        <div className="grid grid-cols-2 gap-4">
-                          <div>
-                            <h3 className="font-semibold mb-2">Milestone Information</h3>
-                            <p>Description: {milestone.description}</p>
-                            <p>Invoice Number: {milestone.invoice.invoice_number}</p>
-                            <p>User: {milestone.user.first_name} {milestone.user.last_name}</p>
-                            <p>Payment Amount: ${milestone.payment_amount.toFixed(2)}</p>
-                        
-                            <p>Bank Details: <span className="block"> {milestone.bank_name}</span>
-                            <span className="block">{milestone.bank_account_no}</span></p>
-                            <p>Due Date: {format(new Date(milestone.due_date), 'MMM dd, yyyy')}</p>
-                            <p>Status: {milestone.status}</p>
-                            {milestone.approved_at && (
-                              <p>Approved At: {format(new Date(milestone.approved_at), 'MMM dd, yyyy HH:mm:ss')}</p>
-                            )}
-                            {milestone.paid_at && (
-                              <p>Paid At: {format(new Date(milestone.paid_at), 'MMM dd, yyyy HH:mm:ss')}</p>
-                            )}
+                    <div className="flex gap-2">
+                      <Dialog open={openDialog && selectedMilestone === milestone.id} onOpenChange={(open) => {
+                        setOpenDialog(open);
+                        if (!open) setSelectedMilestone(null);
+                      }}>
+                        <DialogTrigger asChild>
+                          <Button 
+                            variant="outline" 
+                            size="sm"
+                            onClick={() => setSelectedMilestone(milestone.id)}
+                          >
+                            Quick View
+                          </Button>
+                        </DialogTrigger>
+                        <DialogContent className="sm:max-w-[700px]">
+                          <DialogHeader>
+                            <DialogTitle>Milestone Details</DialogTitle>
+                            <DialogDescription>
+                              Review the milestone for Invoice #{milestone.invoice.invoice_number}
+                            </DialogDescription>
+                          </DialogHeader>
+                          <div className="grid grid-cols-2 gap-4">
+                            <div>
+                              <h3 className="font-semibold mb-2">Milestone Information</h3>
+                              <p>Description: {milestone.description}</p>
+                              <p>Invoice Number: {milestone.invoice.invoice_number}</p>
+                              <p>User: {milestone.user.first_name} {milestone.user.last_name}</p>
+                              <p>Payment Amount: ${milestone.payment_amount.toFixed(2)}</p>
+                              <p>Bank Details: 
+                                <span className="block">{milestone.bank_name}</span>
+                                <span className="block">{milestone.bank_account_no}</span>
+                              </p>
+                              <p>Due Date: {format(new Date(milestone.due_date), 'MMM dd, yyyy')}</p>
+                              <p>Status: {milestone.status}</p>
+                              {milestone.approved_at && (
+                                <p>Approved At: {format(new Date(milestone.approved_at), 'MMM dd, yyyy HH:mm:ss')}</p>
+                              )}
+                              {milestone.paid_at && (
+                                <p>Paid At: {format(new Date(milestone.paid_at), 'MMM dd, yyyy HH:mm:ss')}</p>
+                              )}
+                            </div>
+                            <div>
+                              <h3 className="font-semibold mb-2">Supporting Document</h3>
+                              {milestone.supporting_doc && (
+                                <Image
+                                  src={milestone.supporting_doc}
+                                  alt="Supporting Document"
+                                  width={300}
+                                  height={400}
+                                  className="w-full h-auto"
+                                />
+                              )}
+                            </div>
                           </div>
-                          <div>
-                            <h3 className="font-semibold mb-2">Supporting Document</h3>
-                            {milestone.supporting_doc && (
-                              <Image
-                                src={milestone.supporting_doc}
-                                alt="Supporting Document"
-                                width={300}
-                                height={400}
-                                className="w-full h-auto"
-                              />
+                          <DialogFooter>
+                            <Link href={`/admin/milestone/${milestone.id}`}>
+                              <Button variant="outline">
+                                View Full Details
+                              </Button>
+                            </Link>
+                            {milestone.status === 'PENDING' && (
+                              <>
+                                <Button 
+                                  variant="outline" 
+                                  onClick={() => handleApproveReject('REJECTED', milestone.id)} 
+                                  className="bg-red-500 text-white hover:bg-red-600"
+                                >
+                                  Reject
+                                </Button>
+                                <Button 
+                                  onClick={() => handleApproveReject('APPROVED', milestone.id)} 
+                                  className="bg-green-500 text-white hover:bg-green-600"
+                                >
+                                  Approve
+                                </Button>
+                              </>
                             )}
-                          </div>
-                        </div>
-                        <DialogFooter>
-                          <Button variant="outline" onClick={() => handleApproveReject('REJECTED', milestone.id)} className="bg-red-500 text-white hover:bg-red-600">Reject</Button>
-                          <Button onClick={() => handleApproveReject('APPROVED', milestone.id)} className="bg-green-500 text-white hover:bg-green-600">Approve</Button>
-                        </DialogFooter>
-                      </DialogContent>
-                    </Dialog>
+                          </DialogFooter>
+                        </DialogContent>
+                      </Dialog>
+                      
+                      <Link href={`/admin/milestone/${milestone.id}`}>
+                        <Button 
+                          variant="outline" 
+                          size="sm" 
+                          className="bg-black text-white hover:bg-gray-700"
+                        >
+                          Full Details
+                        </Button>
+                      </Link>
+                    </div>
                   </TableCell>
                 </TableRow>
               ))

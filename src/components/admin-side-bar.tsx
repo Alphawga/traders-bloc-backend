@@ -11,6 +11,11 @@ import { usePermission } from "@/hooks/use-permission"
 export function AdminSidebar({ className }: React.HTMLAttributes<HTMLDivElement>) {
   const pathname = usePathname()
   const { hasPermission } = usePermission()
+  const hasAccessControl = hasPermission('VIEW_ACCESS_CONTROL')
+  const hasCreditOpsLead = hasPermission('CREDIT_OPS_LEAD')
+  const hasHeadOfCredit = hasPermission('HEAD_OF_CREDIT')
+  const hasInvoices =  hasCreditOpsLead || hasHeadOfCredit
+  const hasMilestones = hasPermission('VIEW_MILESTONES')
 
   return (
     <div className={cn("pb-12 w-64", className)}>
@@ -33,12 +38,14 @@ export function AdminSidebar({ className }: React.HTMLAttributes<HTMLDivElement>
                 KYC
               </Link>
             </Button>
-            <Button variant={pathname === '/admin/access-control' ? 'secondary' : 'ghost'} className="w-full justify-start" asChild>
-              <Link href="/admin/access-control">
-                <KeyRoundIcon className="mr-2 h-4 w-4" />
-                Access Control
-              </Link>
-            </Button>
+            {hasAccessControl && (
+              <Button variant={pathname === '/admin/access-control' ? 'secondary' : 'ghost'} className="w-full justify-start" asChild>
+                <Link href="/admin/access-control">
+                  <KeyRoundIcon className="mr-2 h-4 w-4" />
+                  Access Control
+                </Link>
+              </Button>
+            )}
             {hasPermission('OVERSEE_CREDIT_OPERATIONS_PIPELINE') && (
               <Button variant={pathname === '/admin/staffs-workload' ? 'secondary' : 'ghost'} className="w-full justify-start" asChild>
                 <Link href="/admin/staffs-workload">
@@ -47,24 +54,30 @@ export function AdminSidebar({ className }: React.HTMLAttributes<HTMLDivElement>
                 </Link>
               </Button>
             )}
+            {hasInvoices && (
             <Button variant={pathname === '/admin/invoices' ? 'secondary' : 'ghost'} className="w-full justify-start" asChild>
               <Link href="/admin/invoices">
                 <FileTextIcon className="mr-2 h-4 w-4" />
                 Invoices
               </Link>
             </Button>
-            <Button variant={pathname === '/admin/milestone' ? 'secondary' : 'ghost'} className="w-full justify-start" asChild>
-              <Link href="/admin/milestone">
-                <CreditCardIcon className="mr-2 h-4 w-4" />
-                Milestones
+            )}
+            {hasMilestones && (
+              <Button variant={pathname === '/admin/milestone' ? 'secondary' : 'ghost'} className="w-full justify-start" asChild>
+                <Link href="/admin/milestone">
+                  <CreditCardIcon className="mr-2 h-4 w-4" />
+                  Milestones
+                </Link>
+              </Button>
+            )}
+           
+              <Button variant={pathname === '/admin/funding-requests' ? 'secondary' : 'ghost'} className="w-full justify-start" asChild>
+                <Link href="/admin/funding-requests">
+                  <DollarSignIcon className="mr-2 h-4 w-4" />
+                  Funding Request
               </Link>
             </Button>
-            <Button variant={pathname === '/admin/funding-requests' ? 'secondary' : 'ghost'} className="w-full justify-start" asChild>
-              <Link href="/admin/funding-requests">
-                <DollarSignIcon className="mr-2 h-4 w-4" />
-                Funding Request
-              </Link>
-            </Button>
+           
             <Button variant={pathname === '/admin/reports' ? 'secondary' : 'ghost'} className="w-full justify-start" asChild>
               <Link href="/admin/reports">
                 <BarChartIcon className="mr-2 h-4 w-4" />

@@ -15,6 +15,7 @@ const roles = {
       { module: "invoice", action: BLOCK_PERMISSIONS.APPROVE_INVOICES },
       { module: "invoice", action: BLOCK_PERMISSIONS.ASSIGN_INVOICES_TO_CREDIT_OPS_LEADS },
       { module: "milestone", action: BLOCK_PERMISSIONS.CO_SIGN_MILESTONES_TO_TRIGGER_PAYMENTS },
+      { module: "milestone", action: BLOCK_PERMISSIONS.VIEW_MILESTONES },
       { module: "invoice", action: BLOCK_PERMISSIONS.MARK_OFF_INVOICES_AS_DELIVERED },
       { module: "collection", action: BLOCK_PERMISSIONS.FORWARD_COLLECTION_DETAILS_TO_COLLECTIONS_TEAM },
       { module: "user", action: BLOCK_PERMISSIONS.ASSIGN_AND_MANAGE_USER_CREDENTIALS },
@@ -36,6 +37,7 @@ const roles = {
       { module: "milestone", action: BLOCK_PERMISSIONS.CO_SIGN_MILESTONES_TO_TRIGGER_PAYMENTS },
       { module: "milestone", action: BLOCK_PERMISSIONS.VALIDATE_AND_CO_SIGN_MILESTONES },
       { module: "performance", action: BLOCK_PERMISSIONS.TRACK_INVOICE_AND_MILESTONE_PERFORMANCE },
+      { module: "milestone", action: BLOCK_PERMISSIONS.ADD_NOTES },
     ]
   },
   CREDIT_OPS_ANALYST: {
@@ -46,6 +48,8 @@ const roles = {
       { module: "milestone", action: BLOCK_PERMISSIONS.VALIDATE_MILESTONE_DETAILS },
       { module: "milestone", action: BLOCK_PERMISSIONS.APPROVE_OR_EDIT_MILESTONES },
       { module: "communication", action: BLOCK_PERMISSIONS.COMMUNICATE_MILESTONE_UPDATES },
+      { module: "milestone", action: BLOCK_PERMISSIONS.VIEW_MILESTONES },
+      { module: "milestone", action: BLOCK_PERMISSIONS.ADD_NOTES },
     ]
   },
   FINANCE: {
@@ -55,6 +59,7 @@ const roles = {
       { module: "payment", action: BLOCK_PERMISSIONS.HANDLE_PAYMENTS_FOR_APPROVED_MILESTONES },
       { module: "finance", action: BLOCK_PERMISSIONS.FORECAST_FINANCIAL_NEEDS },
       { module: "finance", action: BLOCK_PERMISSIONS.TRACK_TOTAL_PAYABLE_AMOUNTS },
+      { module: "milestone", action: BLOCK_PERMISSIONS.ADD_NOTES },
     ]
   },
   COLLECTIONS: {
@@ -65,6 +70,7 @@ const roles = {
       { module: "payment", action: BLOCK_PERMISSIONS.TRACK_OVERDUE_PAYMENTS },
       { module: "payment", action: BLOCK_PERMISSIONS.CALCULATE_PENALTIES_OR_INTEREST },
       { module: "revenue", action: BLOCK_PERMISSIONS.COMMUNICATE_REVENUE_BREAKDOWNS },
+      { module: "milestone", action: BLOCK_PERMISSIONS.ADD_NOTES },
     ]
   }
 };

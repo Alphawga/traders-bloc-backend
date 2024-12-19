@@ -8,7 +8,7 @@ import { z } from 'zod';
 import { ApprovalStatus, NotificationType, PaymentStatus, Prisma } from '@prisma/client';
 import { TRPCError } from '@trpc/server';
 import bcrypt from 'bcrypt'
-import { createNotification } from '@/lib/helper-function';
+import { createNotification, getNotificationType, getRelevantRoles } from '@/lib/helper-function';
 import { BLOCK_PERMISSIONS } from '@/lib/contants';
 import { createProcedure } from '../context';
 import { getUserPermissions } from '@/lib/permission-utils';
@@ -17,9 +17,12 @@ import { getUserPermissions } from '@/lib/permission-utils';
 const headOfCreditProc   = createProcedure(BLOCK_PERMISSIONS.ASSIGN_INVOICES_TO_CREDIT_OPS_LEADS);
 const assignMilestonesToAnalystsProc = createProcedure(BLOCK_PERMISSIONS.ASSIGN_MILESTONES_TO_ANALYSTS);
 const coSignMilestoneProc = createProcedure(BLOCK_PERMISSIONS.CO_SIGN_MILESTONES_TO_TRIGGER_PAYMENTS);
+const seeAllMilestonesProc = createProcedure(BLOCK_PERMISSIONS.VIEW_MILESTONES);
+const viewMilestoneProc = createProcedure(BLOCK_PERMISSIONS.VIEW_MILESTONES);
+const addNoteProc = createProcedure(BLOCK_PERMISSIONS.ADD_NOTES);
+const approveMilestoneProc = createProcedure(BLOCK_PERMISSIONS.APPROVE_OR_EDIT_MILESTONES);
 
-
-export const getAllMilestones = headOfCreditProc
+export const getAllMilestones = seeAllMilestonesProc
   .input(
     z.object({
       search: z.string().optional(),
@@ -46,7 +49,7 @@ export const getAllMilestones = headOfCreditProc
       }).optional(),
     })
   )
-  .query(async ({ input }) => {
+  .query(async ({ input, ctx }) => {
     const {
       search,
       status,
@@ -60,8 +63,19 @@ export const getAllMilestones = headOfCreditProc
       amountRange,
     } = input;
 
+    // Get user permissions
+    const permissionResult = await getUserPermissions(ctx.session);
+    const isCreditOpsAnalyst = permissionResult.hasPermission("CREDIT_OPS_ANALYST");
+
     const skip = (page - 1) * limit;
-    const where: Prisma.MilestoneWhereInput = {};
+    const where: Prisma.MilestoneWhereInput = {
+      deleted_at: null,
+    };
+
+    // If credit ops analyst, only show assigned milestones
+    if (isCreditOpsAnalyst) {
+      where.assigned_to_id = ctx.session.user.id;
+    }
 
     // Search filter
     if (search) {
@@ -74,10 +88,9 @@ export const getAllMilestones = headOfCreditProc
       ];
     }
 
-    if (status) {
+    if (status && status !== ("all") as ApprovalStatus) {
       where.status = status as ApprovalStatus;
     }
-
 
     // Due date range filter
     if (dueDateRange) {
@@ -147,14 +160,50 @@ export const getAllMilestones = headOfCreditProc
         user: true,
         invoice: true,
         reviewed_by: true,
+        assigned_to: true,
+        cosigned_by: true,
+        second_level_co_sign: true,
       },
       skip,
       take: limit,
       orderBy,
     });
 
+    // Fetch notes for all milestones in a single query
+    const milestoneIds = milestones.map(milestone => milestone.id);
+    const notes = await prisma.note.findMany({
+      where: {
+        entity_id: { in: milestoneIds },
+        entity_type: 'milestone',
+        deleted_at: null,
+      },
+      include: {
+        admin: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
+      },
+    });
+
+    // Group notes by milestone ID
+    const notesByMilestoneId = notes.reduce((acc, note) => {
+      if (!acc[note.entity_id]) {
+        acc[note.entity_id] = [];
+      }
+      acc[note.entity_id].push(note);
+      return acc;
+    }, {} as Record<string, typeof notes>);
+
+    // Combine milestones with their notes
+    const transformedMilestones = milestones.map(milestone => ({
+      ...milestone,
+      notes: notesByMilestoneId[milestone.id] || [],
+    }));
+
     return {
-      data: milestones,
+      data: transformedMilestones,
       metadata: {
         total,
         page,
@@ -180,7 +229,7 @@ export const getAdminData = adminProcedure
     return admin;
   });
 
-export const updateMilestoneSatus = adminProcedure
+export const updateMilestoneSatus = approveMilestoneProc
   .input(milestoneUpdateSchema)
   .mutation(async ({ input }) => {
     const { id, status } = input;
@@ -476,6 +525,61 @@ export const getAdminDashboardSummary = createProcedure()
           take: 5,
         }),
       ]);
+
+      if (admin.claims.some(c => c.role?.name === BLOCK_PERMISSIONS.CREDIT_OPS_ANALYST)) {
+        const [
+          pendingValidations,
+          completedThisWeek,
+          totalValidations,
+          successfulValidations
+        ] = await Promise.all([
+          prisma.milestone.count({
+            where: {
+              assigned_to_id: adminId,
+              status: "PENDING",
+              deleted_at: null,
+            },
+          }),
+          prisma.milestone.count({
+            where: {
+              assigned_to_id: adminId,
+              status: "APPROVED",
+              updated_at: {
+                gte: new Date(new Date().setDate(new Date().getDate() - 7)),
+              },
+              deleted_at: null,
+            },
+          }),
+          prisma.milestone.count({
+            where: {
+              assigned_to_id: adminId,
+              deleted_at: null,
+            },
+          }),
+          prisma.milestone.count({
+            where: {
+              assigned_to_id: adminId,
+              status: "APPROVED",
+              deleted_at: null,
+            },
+          }),
+        ]);
+
+        return {
+          admin,
+          pendingInvoices,
+          pendingFundRequest,
+          totalFunded: totalFundedResult._sum.requested_amount || 0,
+          pendingMilestone,
+          recentActivity,
+          unreadNotifications,
+          pendingValidations,
+          completedThisWeek,
+          validationSuccessRate: totalValidations > 0 
+            ? Math.round((successfulValidations / totalValidations) * 100) 
+            : 0,
+        };
+      }
 
       return {
         admin,
@@ -1176,11 +1280,50 @@ export const updateAdminData = adminProcedure
     return kycDocument
   })
 
-  export const getMilestone = adminProcedure.input(z.object({id: z.string()})).query(async ({input}) => {
-    const {id} = input
-    const milestone = await prisma.milestone.findUnique({where: {id}, include: {user: true, invoice: true}})
-    return milestone
-  })
+  export const getMilestone = viewMilestoneProc
+  .input(z.object({ id: z.string() }))
+  .query(async ({ input }) => {
+    const [milestone, notes] = await Promise.all([
+      prisma.milestone.findUnique({
+        where: { id: input.id },
+        include: {
+          user: true,
+          invoice: true,
+          reviewed_by: true,
+          assigned_to: true,
+          cosigned_by: true,
+          second_level_co_sign: true,
+        },
+      }),
+      prisma.note.findMany({
+        where: {
+          entity_id: input.id,
+          entity_type: 'milestone',
+          deleted_at: null,
+        },
+        include: {
+          admin: {
+            select: {
+              id: true,
+              name: true,
+            },
+          },
+        },
+      }),
+    ]);
+
+    if (!milestone) {
+      throw new TRPCError({
+        code: 'NOT_FOUND',
+        message: 'Milestone not found',
+      });
+    }
+
+    return {
+      ...milestone,
+      notes,
+    };
+  });
 
 export const getAllVendors = adminProcedure
   .input(
@@ -1311,7 +1454,7 @@ export const getCreditOpsLeads = coSignMilestoneProc
             status: 'PENDING',
           },
         },
-      },
+      }
     });
    
     return creditOpsLeads.map(admin => ({
@@ -1550,3 +1693,212 @@ export const markInvoiceDelivered = createProcedure(BLOCK_PERMISSIONS.MARK_OFF_I
     const userPermission = await prisma.claim.findFirst({where: {role_name: permission, user_id: ctx.session?.user.id ?? '', active: true}})
     return userPermission ? true : false
   })
+
+export const getMilestoneNotes = viewMilestoneProc
+  .input(z.object({
+    milestone_id: z.string(),
+  }))
+  .query(async ({ input }) => {
+    const notes = await prisma.note.findMany({
+      where: {
+        entity_id: input.milestone_id,
+        entity_type: 'milestone',
+        deleted_at: null,
+      },
+      include: {
+        admin: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
+      },
+      orderBy: {
+        created_at: 'desc',
+      },
+    });
+
+    return notes;
+  });
+
+export const addMilestoneNote = addNoteProc
+  .input(z.object({
+    milestone_id: z.string(),
+    content: z.string(),
+    attachments: z.array(z.string()).optional(),
+  }))
+  .mutation(async ({ input, ctx }) => {
+    const { milestone_id, content, attachments } = input;
+
+    // Create the note
+    const note = await prisma.note.create({
+      data: {
+        content,
+        entity_id: milestone_id,
+        entity_type: 'milestone',
+        admin_id: ctx.session.user.id,
+        attachments: attachments || [],
+      },
+    });
+
+    // Notify relevant parties
+    const milestone = await prisma.milestone.findUnique({
+      where: { id: milestone_id },
+      include: {
+        assigned_to: true,
+      },
+    });
+
+    if (milestone) {
+      // Notify Head of Credit and Credit Ops Lead
+      const adminsToNotify = await prisma.admin.findMany({
+        where: {
+          claims: {
+            some: {
+              OR: [
+                { role_name: BLOCK_PERMISSIONS.HEAD_OF_CREDIT },
+                { role_name: BLOCK_PERMISSIONS.CREDIT_OPS_LEAD },
+              ],
+              active: true,
+            },
+          },
+        },
+      });
+
+      for (const admin of adminsToNotify) {
+        await createNotification(
+          `New note added to milestone by ${ctx.session.user.name}`,
+          NotificationType.MILESTONE_STATUS_UPDATE,
+          milestone_id,
+          milestone.user_id,
+          ctx.session,
+          [admin.id]
+        );
+      }
+    }
+
+    return note;
+  });
+
+export const getNotes = addNoteProc
+  .input(z.object({
+    entity_id: z.string(),
+    entity_type: z.enum(['milestone', 'invoice', 'funding_request', 'kyc']),
+  }))
+  .query(async ({ input }) => {
+    const notes = await prisma.note.findMany({
+      where: {
+        entity_id: input.entity_id,
+        entity_type: input.entity_type,
+        deleted_at: null,
+      },
+      include: {
+        admin: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
+      },
+      orderBy: {
+        created_at: 'desc',
+      },
+    });
+
+    return notes;
+  });
+
+export const addNote = addNoteProc
+  .input(z.object({
+    entity_id: z.string(),
+    entity_type: z.enum(['milestone', 'invoice', 'funding_request', 'kyc']),
+    content: z.string(),
+    attachments: z.array(z.string()).optional(),
+  }))
+  .mutation(async ({ input, ctx }) => {
+    const { entity_id, entity_type, content, attachments } = input;
+
+    // Create the note
+    const note = await prisma.note.create({
+      data: {
+        content,
+        entity_id,
+        entity_type,
+        admin_id: ctx.session.user.id,
+        attachments: attachments || [],
+      },
+    });
+
+    // Get relevant admins to notify based on entity type
+    const adminsToNotify = await prisma.admin.findMany({
+      where: {
+        claims: {
+          some: {
+            role_name: {
+              in: getRelevantRoles(entity_type),
+            },
+            active: true,
+          },
+        },
+      },
+    });
+
+    // Find the entity and get its user_id based on entity_type
+    let userId: string | undefined;
+    
+    switch (entity_type) {
+      case 'milestone':
+        const milestone = await prisma.milestone.findUnique({
+          where: { id: entity_id },
+          select: { user_id: true }
+        });
+        userId = milestone?.user_id;
+        break;
+      
+      case 'invoice':
+        const invoice = await prisma.invoice.findUnique({
+          where: { id: entity_id },
+          select: { user_id: true }
+        });
+        userId = invoice?.user_id;
+        break;
+      
+      case 'funding_request':
+        const fundingRequest = await prisma.fundingRequest.findUnique({
+          where: { id: entity_id },
+          select: { user_id: true }
+        });
+        userId = fundingRequest?.user_id;
+        break;
+      
+      case 'kyc':
+        const kyc = await prisma.kYCDocument.findUnique({
+          where: { id: entity_id },
+          select: { user_id: true }
+        });
+        userId = kyc?.user_id;
+        break;
+    }
+
+    if (!userId) {
+      throw new TRPCError({
+        code: 'NOT_FOUND',
+        message: `${entity_type} not found`
+      });
+    }
+
+    // Create notifications
+    for (const admin of adminsToNotify) {
+      await createNotification(
+        `New note added to ${entity_type} by ${ctx.session.user.name}`,
+        getNotificationType(entity_type),
+        entity_id,
+        userId,
+        ctx.session,
+        [admin.id]
+      );
+    }
+
+    return note;
+  });
+

@@ -38,4 +38,5 @@ export const BLOCK_PERMISSIONS = {
     VIEW_MILESTONES: "view_milestones",
     VIEW_FUNDING_REQUESTS: "view_funding_requests",
     FINANCE_ROLE: "FINANCE_ROLE",
+    ADD_NOTES: "add_notes",
 };

@@ -4,6 +4,7 @@ import { Session } from 'next-auth';
 import { sendEmail } from './email-service';
 import crypto from 'crypto';
 import { addHours } from 'date-fns';
+import { BLOCK_PERMISSIONS } from './contants';
 
 
 
@@ -35,7 +36,7 @@ export const createNotification = async (
   message: string,
   type: NotificationType,
   link: string,
-  user_id: string,
+  user_id?: string,
   session?: Session | null,
   admin_ids?: string[]
 ) => {
@@ -44,9 +45,11 @@ export const createNotification = async (
       message,
       type,
       link,
-      user: {
-        connect: { id: user_id }
-      },
+      ...(user_id && {
+        user: {
+          connect: { id: user_id }
+        }
+      }),
       ...(admin_ids && {
         admin: {
           connect: admin_ids.map(id => ({ id }))
@@ -237,3 +240,32 @@ export async function verifyEmail(token: string): Promise<boolean> {
   return true;
 }
 
+export function getRelevantRoles(entityType: string): string[] {
+  switch (entityType) {
+    case 'milestone':
+      return [BLOCK_PERMISSIONS.HEAD_OF_CREDIT, BLOCK_PERMISSIONS.CREDIT_OPS_LEAD];
+    case 'invoice':
+      return [BLOCK_PERMISSIONS.HEAD_OF_CREDIT, BLOCK_PERMISSIONS.CREDIT_OPS_LEAD];
+    case 'funding_request':
+      return [BLOCK_PERMISSIONS.HEAD_OF_CREDIT];
+    case 'kyc':
+      return [BLOCK_PERMISSIONS.HEAD_OF_CREDIT];
+    default:
+      return [];
+  }
+}
+
+export function getNotificationType(entityType: string): NotificationType {
+  switch (entityType) {
+    case 'milestone':
+      return NotificationType.MILESTONE_STATUS_UPDATE;
+    case 'invoice':
+      return NotificationType.INVOICE_STATUS_UPDATE;
+    case 'funding_request':
+      return NotificationType.FUNDING_STATUS_UPDATE;
+    case 'kyc':
+      return NotificationType.KYC_STATUS_UPDATE;
+    default:
+      return NotificationType.SYSTEM_ALERT;
+  }
+}

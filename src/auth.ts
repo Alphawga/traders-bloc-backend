@@ -23,6 +23,8 @@ export const authOptions: NextAuthOptions = {
             id: true,
             email: true,
             password: true,
+            first_name: true,
+            last_name: true,
             is_email_verified: true,
             kyc_status: true,
             can_create_invoice: true,
@@ -35,6 +37,7 @@ export const authOptions: NextAuthOptions = {
             return {
               id: user.id,
               email: user.email,
+              name: `${user.first_name} ${user.last_name}`,
               role: "USER",
               is_email_verified: user.is_email_verified,
               kyc_status: user.kyc_status,
@@ -77,6 +80,7 @@ export const authOptions: NextAuthOptions = {
             return {
               id: admin.id,
               email: admin.email,
+              name: admin.name,
               role: "ADMIN",
               is_email_verified: true,
               kyc_status: "APPROVED",
@@ -94,6 +98,7 @@ export const authOptions: NextAuthOptions = {
     async jwt({ token, user }) {
       if (user) {
         token.id = user.id;
+        token.name = user.name;
         token.email = user.email;
         token.role = user.role;
         token.is_email_verified = user.is_email_verified;

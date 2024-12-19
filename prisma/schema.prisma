@@ -65,6 +65,7 @@ model Admin {
   second_level_co_signed_milestones Milestone[] @relation("SecondLevelCoSignMilestones")
   assigned_by_milestones Milestone[] @relation("AssignedByMilestones")
   assigned_invoices_by Invoice[] @relation("AssignedInvoicesBy")
+  notes Note[]
 }
 
 model KYCDocument {
@@ -137,9 +138,9 @@ model Milestone {
   updated_at         DateTime @updatedAt
   deleted_at         DateTime?
   cosigned_by_id     String?
-  cosigned_by        Admin?   @relation("CosignedMilestones", fields: [cosigned_by_id], references: [id]) // cosigned by crdit ops lead
+  cosigned_by        Admin?   @relation("CosignedMilestones", fields: [cosigned_by_id], references: [id])
   second_level_co_sign_id     String?
-  second_level_co_sign        Admin?   @relation("SecondLevelCoSignMilestones", fields: [second_level_co_sign_id], references: [id]) // second level by head of credit
+  second_level_co_sign        Admin?   @relation("SecondLevelCoSignMilestones", fields: [second_level_co_sign_id], references: [id])
   assigned_by_id     String?
   assigned_by        Admin?   @relation("AssignedByMilestones", fields: [assigned_by_id], references: [id])
   assigned_to_id     String?
@@ -150,6 +151,8 @@ model Milestone {
   payment_approved_by_id String?
   payment_approved_by Admin? @relation("ApprovedPayments", fields: [payment_approved_by_id], references: [id])
 }
+
+
 
 
 model FundingRequest {
@@ -330,4 +333,20 @@ enum KYCStatus {
   SUBMITTED
   APPROVED
   REJECTED
+}
+
+// Add a new model for generic notes
+model Note {
+  id           String    @id @default(uuid())
+  content      String    @db.Text
+  entity_id    String    // ID of the related entity (milestone, invoice, etc.)
+  entity_type  String    // Type of entity (e.g., "milestone", "invoice")
+  admin_id     String
+  created_at   DateTime  @default(now())
+  updated_at   DateTime  @updatedAt
+  deleted_at   DateTime?
+  admin        Admin     @relation(fields: [admin_id], references: [id])
+  attachments  String[]  // URLs to attached files
+
+  @@index([entity_id, entity_type])
 }
