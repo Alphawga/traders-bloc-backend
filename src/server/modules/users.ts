@@ -792,3 +792,84 @@ export const resendVerification = publicProcedure
     return { success: true };
   });
 
+const companyUpdateSchema = z.object({
+  id: z.string().uuid(), // User ID
+  company_name: z.string().optional(),
+  business_address: z.string().optional(),
+  business_description: z.string().optional(),
+  business_ownership_percentage: z.number().min(0).max(100).optional(),
+  source_of_wealth: z.string().optional(),
+});
+
+export const updateCompanyDetails = publicProcedure
+  .input(companyUpdateSchema)
+  .mutation(async ({ input }) => {
+    const {
+      id,
+      company_name,
+      business_address,
+      business_description,
+      business_ownership_percentage,
+      source_of_wealth,
+    } = input;
+
+    try {
+      // Check if user exists
+      await prisma.user.findUniqueOrThrow({
+        where: { id },
+        select: { id: true, email: true },
+      });
+
+      // Prepare update data
+      const updateData: {
+        company_name?: string;
+        business_address?: string;
+        business_description?: string;
+        business_ownership_percentage?: number;
+        source_of_wealth?: string;
+      } = {};
+
+      if (company_name !== undefined) updateData.company_name = company_name;
+      if (business_address !== undefined) updateData.business_address = business_address;
+      if (business_description !== undefined) updateData.business_description = business_description;
+      if (business_ownership_percentage !== undefined)
+        updateData.business_ownership_percentage = business_ownership_percentage;
+      if (source_of_wealth !== undefined) updateData.source_of_wealth = source_of_wealth;
+
+      // Update user in the database
+      const updatedUser = await prisma.user.update({
+        where: { id },
+        data: {
+          ...updateData,
+          updated_at: new Date(),
+        },
+        select: {
+          id: true,
+          email: true,
+          company_name: true,
+          business_address: true,
+          business_description: true,
+          business_ownership_percentage: true,
+          source_of_wealth: true,
+          updated_at: true,
+        },
+      });
+
+      return updatedUser;
+    } catch (error) {
+      if (error instanceof Prisma.PrismaClientKnownRequestError) {
+        if (error.code === 'P2025') {
+          throw new TRPCError({
+            code: 'NOT_FOUND',
+            message: 'User not found',
+          });
+        }
+      }
+
+      console.error('Company update error:', error);
+      throw new TRPCError({
+        code: 'INTERNAL_SERVER_ERROR',
+        message: 'Failed to update company details',
+      });
+    }
+  });
