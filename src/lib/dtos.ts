@@ -70,7 +70,7 @@ export const milestoneSchema = z.object({
 export const invoiceUpdateSchema = z.object({
   invoice_id: z.string(),
   status: z.enum([ApprovalStatus.APPROVED, ApprovalStatus.REJECTED, 
-    ApprovalStatus.PENDING,  ApprovalStatus.NOT_SUBMITTED]),
+    ApprovalStatus.PENDING,  ApprovalStatus.NOT_SUBMITTED, ApprovalStatus.FULLY_DELIVERED]),
 });
 export const userUpdateSchema = z.object({
   id: z.string(),

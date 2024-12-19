@@ -145,7 +145,7 @@ function InvoiceReview() {
     invoiceId: string,
     status: ApprovalStatus
   ) => {
-    updateInvoiceStatus.mutate({ invoice_id: invoiceId, status as unknown as IKYCFilterParams[] });
+    updateInvoiceStatus.mutate({ invoice_id: invoiceId, status });
   };
 
   const markInvoiceDelivered = trpc.markInvoiceDelivered.useMutation({
@@ -248,6 +248,8 @@ function InvoiceReview() {
         return "bg-green-100 text-green-800";
       case "REJECTED":
         return "bg-red-100 text-red-800";
+      case "FULLY_DELIVERED":
+        return "bg-blue-100 text-blue-800";
       default:
         return "bg-gray-100 text-gray-800";
     }
@@ -282,6 +284,7 @@ function InvoiceReview() {
   const areAllMilestonesApproved = (invoice: InvoiceWithRelations) => {
     return invoice.milestones?.every((m: Milestone) => m.status === 'APPROVED')
   }
+
 
 
 
