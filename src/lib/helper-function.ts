@@ -1,18 +1,12 @@
 import prisma from '@/lib/prisma';
 import { NotificationType } from '@prisma/client';
 import { Session } from 'next-auth';
-import { BLOCK_PERMISSIONS } from './contants';
-import { EmailTemplateDataMap, sendEmail } from './email-service';
+import { sendEmail } from './email-service';
 import crypto from 'crypto';
 import { addHours } from 'date-fns';
 
 
-interface NotificationRecipient {
-  email: string;
-  name: string;
-  first_name?: string;
-  last_name?: string;
-}
+
 
 
 
@@ -37,118 +31,32 @@ export async function logAdminActivity(session: Session, action: string, type:No
   }
 }
 
-export async function createNotification(
-  message: string, 
-  type: NotificationType, 
-  link: string, 
-  user_id?: string, 
-  session?: Session
-): Promise<void> {
-  try {
-    let recipients: NotificationRecipient[] = [];
+export const createNotification = async (
+  message: string,
+  type: NotificationType,
+  link: string,
+  user_id: string,
+  session?: Session | null,
+  admin_ids?: string[]
+) => {
+  const notification = await prisma.notification.create({
+    data: {
+      message,
+      type,
+      link,
+      user: {
+        connect: { id: user_id }
+      },
+      ...(admin_ids && {
+        admin: {
+          connect: admin_ids.map(id => ({ id }))
+        }
+      })
+    },
+  });
 
-    let emailTemplate = '';
-
-    switch(type) {
-      case NotificationType.INVOICE_ASSIGNED:
-        const creditOpsLeads = await prisma.admin.findMany({
-          where: {
-            claims: {
-              some: {
-                role_name: BLOCK_PERMISSIONS.CREDIT_OPS_LEAD,
-                active: true
-              }
-            }
-          },
-          select: {
-            id: true,
-            email: true,
-            name: true
-          }
-        });
-        recipients = creditOpsLeads;
-        emailTemplate = 'INVOICE_ASSIGNMENT';
-        break;
-
-      case NotificationType.MILESTONE_ASSIGNED:
-        const analysts = await prisma.admin.findMany({
-          where: {
-            claims: {
-              some: {
-                role_name: BLOCK_PERMISSIONS.CREDIT_OPS_ANALYST,
-                active: true
-              }
-            }
-          },
-          select: {
-            id: true,
-            email: true,
-            name: true
-          }
-        });
-        recipients = analysts;
-        emailTemplate = 'MILESTONE_ASSIGNMENT';
-        break;
-
-      // ... handle other cases ...
-    }
-
-    // Create notification
-    const notification = await prisma.notification.create({
-      data: {
-        message,
-        type,
-        link,
-        admin: recipients.length > 0 ? {
-          connect: recipients.map(r => ({ email: r.email }))
-        } : undefined,
-        user: user_id ? {
-          connect: { id: user_id }
-        } : undefined,
-        is_read: false,
-        email_sent: false
-      }
-    });
-
-    // Send emails
-    if (emailTemplate && recipients.length > 0) {
-      const emailPromises = recipients.map(recipient => 
-        sendEmail({
-          to: recipient.email,
-          subject: emailTemplate,
-          templateName: emailTemplate as keyof EmailTemplateDataMap,
-          data: {
-            email: recipient.email,
-            recipientName: recipient.name || `${recipient.first_name} ${recipient.last_name}`,  
-            link: `${process.env.NEXT_PUBLIC_APP_URL}${link}`,
-            role: 'User', 
-            password: ''
-          }
-        })
-      );
-
-      await Promise.all(emailPromises);
-
-      // Mark notification as emailed
-      await prisma.notification.update({
-        where: { id: notification.id },
-        data: { is_read: false }
-      });
-    }
-
-    // Log admin activity if session exists
-    if (session) {
-      await logAdminActivity(session, message, type);
-    }
-
-  } catch (error) {
-    if (error instanceof Error) {
-      console.error('Error creating notification:', error.message);
-      throw error;
-    }
-    throw new Error('An unknown error occurred while creating notification');
-  }
-}
+  return notification;
+};
 
 
 

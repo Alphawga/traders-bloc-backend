@@ -161,10 +161,21 @@ export const upsertKYCDocument = publicProcedure
           },
         });
 
+        const admin_ids = await prisma.admin.findMany({
+          where: {
+            claims: {
+              some: { role_name: "HEAD_OF_CREDIT" }
+            }
+          }
+        });
+
         await createNotification(
           `New invoice has been created`,
           NotificationType.INVOICE_UPDATE,
-          `/invoices/${newInvoice.id}`
+          `/invoices/${newInvoice.id}`,
+          userId,
+          ctx.session,
+          admin_ids.map(admin => admin.id)
         )
   
         return newInvoice;
@@ -217,10 +228,27 @@ export const upsertKYCDocument = publicProcedure
 
         },
       });
+      const admin_ids = await prisma.admin.findMany({
+        where: {
+          claims: {
+            some: { role_name: { in: ["HEAD_OF_CREDIT", "CREDIT_OPS_LEAD"] } }
+          },
+          OR: [
+            {
+              assigned_invoices: {
+                some: { id: invoice.id }
+              }
+            }
+          ]
+        }
+      });
       await createNotification(
         `Invoice has been updated`,
         NotificationType.INVOICE_UPDATE,
-        `/invoices/${invoice.id}`
+        `/invoices/${invoice.id}`,
+        ctx.session?.user?.id ?? '',
+        ctx.session,
+        admin_ids.map(admin => admin.id)
       )
 
       return invoice;
@@ -295,10 +323,26 @@ export const createMilestone = publicProcedure
         },
       });
 
+      const admin_ids = await prisma.admin.findMany({
+        where: {
+          claims: {
+            some: { role_name: "CREDIT_OPS_LEAD" }
+          },
+          assigned_invoices: {
+            some: {
+              id: invoice_id
+            }
+          }
+        }
+      });
+
       await createNotification(
         `New milestone has been created`,
         NotificationType.MILESTONE_UPDATE,
-        `/milestone/${newMilestone.id}`
+        `/milestone/${newMilestone.id}`,
+        userId,
+        ctx.session,
+        admin_ids.map(admin => admin.id)
       )
 
       return newMilestone;
@@ -315,18 +359,44 @@ export const createMilestone = publicProcedure
 
 export const updateMilestone = publicProcedure
   .input(milestoneSchema)
-  .mutation(async ({ input }) => {
+  .mutation(async ({ input, ctx }) => {
     try {
       const { id, ...data } = input;
       const updatedMilestone = await prisma.milestone.update({
         where: { id },
         data,
       });
+      const admin_ids = await prisma.admin.findMany({
+        where: {
+          claims: {
+            some: { role_name: { in: ["CREDIT_OPS_LEAD", "CREDIT_OPS_ANALYST"] } }
+          },
+          OR: [
+            {
+              assigned_invoices: {
+                some: {
+                  id: updatedMilestone.invoice_id
+                }
+              }
+            },
+            {
+              assigned_milestones: {
+                some: {
+                  id: updatedMilestone.id
+                }
+              }
+            }
+          ]
+        }
+      });
 
       await createNotification(
         `Milestone has been updated`,
         NotificationType.MILESTONE_UPDATE,
-        `/milestone/${updatedMilestone.id}`
+        `/milestone/${updatedMilestone.id}`,
+        ctx.session?.user?.id ?? '',
+        ctx.session,
+        admin_ids.map(admin => admin.id)
       )
 
       return updatedMilestone;
@@ -470,7 +540,7 @@ export const updateMilestone = publicProcedure
 
   export const deleteInvoice = publicProcedure
   .input(z.object({ invoice_id: z.string() }))
-  .mutation(async ({ input }) => {
+  .mutation(async ({ input, ctx }) => {
     const { invoice_id } = input;
 
     try {
@@ -481,10 +551,30 @@ export const updateMilestone = publicProcedure
         },
       });
 
+      const admin_ids = await prisma.admin.findMany({
+        where: {
+          claims: {
+            some: { role_name: { in: ["HEAD_OF_CREDIT", "CREDIT_OPS_LEAD"] } }
+          },
+          OR: [
+            {
+              assigned_invoices: {
+                some: {
+                  id: invoice_id
+                }
+              }
+            }
+          ]
+        }
+      });
+
       await createNotification(
         `Invoice has been deleted`,
         NotificationType.INVOICE_UPDATE,
-        `/invoices/${invoice_id}`
+        `/invoices/${invoice_id}`,
+        ctx.session?.user?.id ?? '',
+        ctx.session,
+        admin_ids.map(admin => admin.id)
       )
 
       return { success: true };
@@ -534,7 +624,7 @@ export const uploadImage = publicProcedure
 
   export const deleteMilestone = publicProcedure
   .input(z.object({ milestone_id: z.string() }))
-  .mutation(async ({ input }) => {
+  .mutation(async ({ input, ctx }) => {
     const { milestone_id } = input;
 
     try {
@@ -545,10 +635,28 @@ export const uploadImage = publicProcedure
         },
       });
 
+      const admin_ids = await prisma.admin.findMany({
+        where: {
+          claims: {
+            some: { role_name: { in: ["CREDIT_OPS_LEAD", "CREDIT_OPS_ANALYST"] } }
+          },
+          OR: [
+            {
+              assigned_milestones: {
+                some: { id: milestone_id }
+              }
+            }
+          ]
+        }
+      });
+
       await createNotification(
         `Milestone has been deleted`,
         NotificationType.MILESTONE_UPDATE,
-        `/milestone/${milestone_id}`
+        `/milestone/${milestone_id}`,
+        ctx.session?.user?.id ?? '',
+        ctx.session,
+        admin_ids.map(admin => admin.id)
       )
 
       return { success: true };
@@ -578,12 +686,23 @@ export const createFundingRequest = publicProcedure
           your_contribution,
           status: 'PENDING',
         },
+      }); 
+
+      const admin_ids = await prisma.admin.findMany({
+        where: {
+          claims: {
+            some: { role_name: "HEAD_OF_CREDIT" }
+          }
+        }
       });
 
       await createNotification(
         `New funding request has been created`,
         NotificationType.FUNDING_UPDATE,
-        `/funding-requests/${newFundingRequest.id}`
+        `/funding-requests/${newFundingRequest.id}`,
+        ctx.session?.user?.id ?? '',
+        ctx.session,
+        admin_ids.map(admin => admin.id)
       )
 
       return newFundingRequest;

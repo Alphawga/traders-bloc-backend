@@ -137,9 +137,9 @@ model Milestone {
   updated_at         DateTime @updatedAt
   deleted_at         DateTime?
   cosigned_by_id     String?
-  cosigned_by        Admin?   @relation("CosignedMilestones", fields: [cosigned_by_id], references: [id])
+  cosigned_by        Admin?   @relation("CosignedMilestones", fields: [cosigned_by_id], references: [id]) // cosigned by crdit ops lead
   second_level_co_sign_id     String?
-  second_level_co_sign        Admin?   @relation("SecondLevelCoSignMilestones", fields: [second_level_co_sign_id], references: [id])
+  second_level_co_sign        Admin?   @relation("SecondLevelCoSignMilestones", fields: [second_level_co_sign_id], references: [id]) // second level by head of credit
   assigned_by_id     String?
   assigned_by        Admin?   @relation("AssignedByMilestones", fields: [assigned_by_id], references: [id])
   assigned_to_id     String?

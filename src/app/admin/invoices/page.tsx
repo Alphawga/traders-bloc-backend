@@ -523,6 +523,7 @@ function InvoiceReview() {
                                 <TableHead>Due Date</TableHead>
                                 <TableHead>Status</TableHead>
                                 <TableHead>Assigned To</TableHead>
+                                <TableHead>Cosigned By</TableHead>
                                 <TableHead>Action</TableHead>
 
                                 
@@ -580,7 +581,11 @@ function InvoiceReview() {
                                       )}
                                     </div>
                                   </TableCell>
-                                 
+                                  <TableCell className="text-xs text-gray-500">
+                                    <p>First Level (Credit Ops Lead): {milestone.cosigned_by?.name??'Not yet co-signed'}</p>
+                                    <p>Second Level (Head of Credit): {milestone.second_level_co_sign?.name??'Not yet co-signed'}</p>
+
+                                  </TableCell>
                                     
                                   {canCoSignMilestone && (
                                   <TableCell>

@@ -1,8 +1,8 @@
 export const BLOCK_PERMISSIONS = {
     ADMIN: "admin",
     VENDOR: "vendor",
-    HEAD_OF_CREDIT: "head_of_credit",
-    CREDIT_OPS_LEAD: "credit_ops_lead",
+    HEAD_OF_CREDIT: "HEAD_OF_CREDIT",
+    CREDIT_OPS_LEAD: "CREDIT_OPS_LEAD",
     CREDIT_OPS_ANALYST: "credit_ops_analyst",
     FINANCE: "finance",
     COLLECTIONS: "collections",
@@ -37,4 +37,5 @@ export const BLOCK_PERMISSIONS = {
     VIEW_INVOICES: "view_invoices",
     VIEW_MILESTONES: "view_milestones",
     VIEW_FUNDING_REQUESTS: "view_funding_requests",
+    FINANCE_ROLE: "FINANCE_ROLE",
 };

@@ -729,7 +729,8 @@ export const getAllInvoices = createProcedure()
             include: {
               cosigned_by: true,
               assigned_to: true,
-              assigned_by: true
+              assigned_by: true,
+              second_level_co_sign: true
             }
           }, 
           funding_requests: true,
@@ -981,13 +982,14 @@ export const updateAdminData = adminProcedure
   });
 
 
-  export const getReportData = headOfCreditProc
+  export const getReportData = adminProcedure
   .input(z.object({
     timeRange: z.enum(['week', 'month', 'year'])
   }))
-  .query(async ({ input }) => {
+  .query(async ({ input, ctx }) => {
     const { timeRange } = input;
-
+    const permissionResult = await getUserPermissions(ctx.session);
+    
     // Calculate date ranges
     const now = new Date();
     const startDate = new Date();
@@ -1008,33 +1010,39 @@ export const updateAdminData = adminProcedure
         break;
     }
 
+    // Base where clause for credit ops lead
+    const whereClause: Prisma.InvoiceWhereInput = {
+      submission_date: { gte: startDate },
+      deleted_at: null,
+    };
+
+    // Add assigned_admin_id filter for credit ops lead
+    if (permissionResult.hasPermission("CREDIT_OPS_LEAD")) {
+      whereClause.assigned_admin_id = ctx.session.user.id;
+    }
+
     try {
       const [
-        currentPeriodData,
-        previousPeriodData,
-        invoiceTrends,
-        statusDistribution,
-        milestoneProgress,
-        userActivity
+        currentData,
+        previousData,
+        trendData,
+        statusData,
+        milestoneData
       ] = await Promise.all([
-        // Current period metrics
+        // Current period metrics with role-based filtering
         prisma.$transaction([
-          prisma.invoice.count({
-            where: { submission_date: { gte: startDate } }
-          }),
-          prisma.user.count({
-            where: { 
-              created_at: { gte: startDate },
-              deleted_at: null
-            }
-          }),
+          prisma.invoice.count({ where: whereClause }),
           prisma.milestone.count({
-            where: { created_at: { gte: startDate } }
+            where: {
+              invoice: { ...whereClause },
+              created_at: { gte: startDate }
+            }
           }),
           prisma.fundingRequest.aggregate({
             where: {
+              invoice: { ...whereClause },
               status: 'APPROVED',
-                submission_date: { gte: startDate }
+              submission_date: { gte: startDate }
             },
             _sum: { requested_amount: true }
           })
@@ -1044,23 +1052,16 @@ export const updateAdminData = adminProcedure
         prisma.$transaction([
           prisma.invoice.count({
             where: {
+              ...whereClause,
               submission_date: {
                 gte: previousStartDate,
                 lt: startDate
               }
             }
           }),
-          prisma.user.count({
-            where: {
-              created_at: {
-                gte: previousStartDate,
-                lt: startDate
-              },
-              deleted_at: null
-            }
-          }),
           prisma.milestone.count({
             where: {
+              invoice: { ...whereClause },
               created_at: {
                 gte: previousStartDate,
                 lt: startDate
@@ -1069,6 +1070,7 @@ export const updateAdminData = adminProcedure
           }),
           prisma.fundingRequest.aggregate({
             where: {
+              invoice: { ...whereClause },
               status: 'APPROVED',
               submission_date: {
                 gte: previousStartDate,
@@ -1079,10 +1081,10 @@ export const updateAdminData = adminProcedure
           })
         ]),
 
-        // Invoice trends
+        // Invoice trends with role-based filtering
         prisma.invoice.groupBy({
           by: ['submission_date'],
-          where: { submission_date: { gte: startDate } },
+          where: whereClause,
           _count: { id: true },
           _sum: { total_price: true },
           orderBy: { submission_date: 'asc' }
@@ -1091,31 +1093,30 @@ export const updateAdminData = adminProcedure
         // Status distribution
         prisma.invoice.groupBy({
           by: ['status'],
+          where: whereClause,
           _count: { id: true }
         }),
 
         // Milestone progress
         prisma.$transaction([
           prisma.milestone.count({
-            where: { status: 'APPROVED' }
+            where: {
+              status: 'APPROVED',
+              invoice: { ...whereClause }
+            }
           }),
           prisma.milestone.count({
-            where: { status: 'PENDING' }
+            where: {
+              status: 'PENDING',
+              invoice: { ...whereClause }
+            }
           })
-        ]),
-
-        // User activity
-        prisma.user.groupBy({
-          by: ['created_at'],
-          where: { created_at: { gte: startDate } },
-          _count: { id: true },
-          orderBy: { created_at: 'asc' }
-        })
+        ])
       ]);
 
-      const [currentInvoices, currentUsers, currentMilestones, currentFunding] = currentPeriodData;
-      const [previousInvoices, previousUsers, previousMilestones, previousFunding] = previousPeriodData;
-      const [completedMilestones, pendingMilestones] = milestoneProgress;
+      const [currentInvoices, currentMilestones, currentFunding] = currentData;
+      const [previousInvoices, previousMilestones, previousFunding] = previousData;
+      const [completedMilestones, pendingMilestones] = milestoneData;
 
       // Calculate growth percentages
       const calculateGrowth = (current: number, previous: number) => 
@@ -1124,8 +1125,6 @@ export const updateAdminData = adminProcedure
       return {
         totalInvoices: currentInvoices,
         invoiceGrowth: calculateGrowth(currentInvoices, previousInvoices),
-        activeUsers: currentUsers,
-        userGrowth: calculateGrowth(currentUsers, previousUsers),
         totalMilestones: currentMilestones,
         milestoneGrowth: calculateGrowth(currentMilestones, previousMilestones),
         totalAmount: currentFunding._sum.requested_amount || 0,
@@ -1133,12 +1132,12 @@ export const updateAdminData = adminProcedure
           currentFunding._sum.requested_amount || 0,
           previousFunding._sum.requested_amount || 0
         ),
-        invoiceTrends: invoiceTrends.map(trend => ({
+        invoiceTrends: trendData.map(trend => ({
           date: trend.submission_date,
           amount: trend._sum.total_price || 0,
           count: trend._count.id
         })),
-        statusDistribution: statusDistribution.map(status => ({
+        statusDistribution: statusData.map(status => ({
           name: status.status,
           value: status._count.id
         })),
@@ -1148,12 +1147,7 @@ export const updateAdminData = adminProcedure
             completed: completedMilestones,
             pending: pendingMilestones
           }
-        ],
-        userActivity: userActivity.map(activity => ({
-          date: activity.created_at,
-          activeUsers: activity._count.id,
-          newUsers: activity._count.id
-        }))
+        ]
       };
     } catch (error) {
       console.error('Error fetching report data:', error);
@@ -1328,18 +1322,28 @@ export const getCreditOpsLeads = coSignMilestoneProc
     }));
   });
 
-export const coSignMilestone = headOfCreditProc
+export const coSignMilestone = coSignMilestoneProc
   .input(z.object({
     milestone_id: z.string(),
   }))
   .mutation(async ({ input, ctx }) => {
     const { milestone_id } = input;
 
+    const permissionResult = await getUserPermissions(ctx.session);
+    
+    const isHeadOfCredit = permissionResult.hasPermission("HEAD_OF_CREDIT")
+    const isCreditOpsLead = permissionResult.hasPermission("CREDIT_OPS_LEAD")
+
     // Check if milestone is approved
     const milestone = await prisma.milestone.findFirst({
       where: {
         id: milestone_id,
         status: ApprovalStatus.APPROVED,
+      },
+      include: {
+        user: true,
+        cosigned_by: true,
+        second_level_co_sign: true,
       },
     });
 
@@ -1350,25 +1354,102 @@ export const coSignMilestone = headOfCreditProc
       });
     }
 
-    // Co-sign the milestone and update payment status
-    const updatedMilestone = await prisma.milestone.update({
-      where: { id: milestone_id },
-      data: {
-        cosigned_by_id: ctx.session.user.id,
-        payment_status: PaymentStatus.APPROVED,
-      },
+    // Handle Credit Ops Lead co-signing
+    if (isCreditOpsLead) {
+      if (milestone.cosigned_by_id) {
+        throw new TRPCError({
+          code: 'BAD_REQUEST',
+          message: 'Milestone has already been co-signed by a Credit Ops Lead',
+        });
+      }
+
+      const updatedMilestone = await prisma.milestone.update({
+        where: { id: milestone_id },
+        data: {
+          cosigned_by_id: ctx.session.user.id,
+        },
+      });
+
+      // Notify Head of Credit admins
+      const headOfCreditAdmins = await prisma.admin.findMany({
+        where: {
+          claims: {
+            some: {
+              role_name: BLOCK_PERMISSIONS.HEAD_OF_CREDIT,
+              active: true,
+            }
+          }
+        }
+      });
+
+      for (const admin of headOfCreditAdmins) {
+        await createNotification(
+          `Milestone requires second level co-signing`,
+          NotificationType.MILESTONE_COSIGNED,
+          milestone_id,
+          milestone.user_id,
+          ctx.session,
+          [admin.id]
+        );
+      }
+
+      return updatedMilestone;
+    }
+
+    // Handle Head of Credit co-signing
+    if (isHeadOfCredit) {
+      if (!milestone.cosigned_by_id) {
+        throw new TRPCError({
+          code: 'BAD_REQUEST',
+          message: 'Milestone must be co-signed by Credit Ops Lead first',
+        });
+      }
+
+      if (milestone.second_level_co_sign_id) {
+        throw new TRPCError({
+          code: 'BAD_REQUEST',
+          message: 'Milestone has already been co-signed by Head of Credit',
+        });
+      }
+
+      const updatedMilestone = await prisma.milestone.update({
+        where: { id: milestone_id },
+        data: {
+          second_level_co_sign_id: ctx.session.user.id,
+          payment_status: PaymentStatus.APPROVED,
+        },
+      });
+
+      // Notify Finance admins
+      const financeAdmins = await prisma.admin.findMany({
+        where: {
+          claims: {
+            some: {
+              role_name: BLOCK_PERMISSIONS.FINANCE_ROLE,
+              active: true,
+            }
+          }
+        }
+      });
+
+      for (const admin of financeAdmins) {
+        await createNotification(
+          `Milestone has been fully co-signed and is ready for payment`,
+          NotificationType.PAYMENT_APPROVED,
+          milestone_id,
+          milestone.user_id,
+          ctx.session,
+          [admin.id]
+        );
+      }
+
+      return updatedMilestone;
+    }
+
+    throw new TRPCError({
+      code: 'FORBIDDEN',
+      message: 'You do not have permission to co-sign milestones',
     });
-
-    // Create notification
-    await createNotification(
-      `Milestone has been co-signed and approved for payment`,
-      NotificationType.MILESTONE_STATUS_UPDATE,
-      milestone_id,
-      milestone.user_id,
-      ctx.session
-    );
-
-    return updatedMilestone;
   });
 
 export const approveMilestonePayment = headOfCreditProc
