@@ -1,17 +1,17 @@
-'use client'
+"use client";
 
-import React, { useState } from "react"
-import { IoSearchOutline } from "react-icons/io5"
-import { trpc } from "@/app/_providers/trpc-provider"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
+import React, { useState } from "react";
+import { IoSearchOutline } from "react-icons/io5";
+import { trpc } from "@/app/_providers/trpc-provider";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@/components/ui/select"
+} from "@/components/ui/select";
 import {
   Table,
   TableBody,
@@ -19,7 +19,7 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from "@/components/ui/table"
+} from "@/components/ui/table";
 import {
   Pagination,
   PaginationContent,
@@ -27,7 +27,7 @@ import {
   PaginationLink,
   PaginationNext,
   PaginationPrevious,
-} from "@/components/ui/pagination"
+} from "@/components/ui/pagination";
 import {
   Dialog,
   DialogContent,
@@ -36,11 +36,11 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
-} from "@/components/ui/dialog"
-import { toast } from "@/hooks/use-toast"
-import { IKYCFilterParams } from "@/lib/model"
-import Image from "next/image"
-import { ApprovalStatus } from "@prisma/client"
+} from "@/components/ui/dialog";
+import { toast } from "@/hooks/use-toast";
+import { IKYCFilterParams } from "@/lib/model";
+import Image from "next/image";
+import { ApprovalStatus } from "@prisma/client";
 
 function KYCReview() {
   const [openDialog, setOpenDialog] = useState(false);
@@ -56,13 +56,17 @@ function KYCReview() {
 
   const [, setSelectedKYC] = useState(null);
 
-  const { data: kycData, isLoading, refetch } = trpc.getAllKYCDocuments.useQuery(filters);
+  const {
+    data: kycData,
+    isLoading,
+    refetch,
+  } = trpc.getAllKYCDocuments.useQuery(filters);
 
   const updateKycStatus = trpc.updateKYCDocument.useMutation({
     onSuccess: () => {
       toast({
-        description: "KYC Status updated successfully"
-      })
+        description: "KYC Status updated successfully",
+      });
       refetch();
       setSelectedKYC(null);
       setOpenDialog(false);
@@ -70,42 +74,55 @@ function KYCReview() {
     onError: () => {
       toast({
         description: "Failed to update KYC Status",
-        variant:"destructive"
-      })
-    }
+        variant: "destructive",
+      });
+    },
   });
 
   const handlePageChange = (newPage: number) => {
-    setFilters(prev => ({ ...prev, page: newPage }));
+    setFilters((prev) => ({ ...prev, page: newPage }));
   };
 
   const handleSearch = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setFilters(prev => ({ ...prev, search: e.target.value, page: 1 }));
+    setFilters((prev) => ({ ...prev, search: e.target.value, page: 1 }));
   };
 
   const handleStatusFilter = (value: string) => {
-    setFilters(prev => ({ ...prev, status: value as ApprovalStatus, page: 1 }));
+    const validStatuses: ApprovalStatus[] = ["PENDING", "APPROVED", "REJECTED"];
+    if (validStatuses.includes(value as ApprovalStatus)) {
+      setFilters((prev) => ({
+        ...prev,
+        status: value as ApprovalStatus,
+        page: 1,
+      }));
+    } else {
+      console.error(`Invalid status: ${value}`);
+    }
   };
 
   const handleSort = (value: string) => {
-    const [sortBy, sortOrder] = value.split('-');
-    setFilters(prev => ({ ...prev, sortBy, sortOrder: sortOrder as 'asc' | 'desc' }));
+    const [sortBy, sortOrder] = value.split("-");
+    setFilters((prev) => ({
+      ...prev,
+      sortBy,
+      sortOrder: sortOrder as "asc" | "desc",
+    }));
   };
 
-  const handleApproveReject = (status: 'APPROVED' | 'REJECTED', id: string) => {
+  const handleApproveReject = (status: "APPROVED" | "REJECTED", id: string) => {
     updateKycStatus.mutate({ kyc_id: id, status });
   };
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'PENDING':
-        return 'bg-yellow-100 text-yellow-800';
-      case 'APPROVED':
-        return 'bg-green-100 text-green-800';
-      case 'REJECTED':
-        return 'bg-red-100 text-red-800';
+      case "PENDING":
+        return "bg-yellow-100 text-yellow-800";
+      case "APPROVED":
+        return "bg-green-100 text-green-800";
+      case "REJECTED":
+        return "bg-red-100 text-red-800";
       default:
-        return 'bg-gray-100 text-gray-800';
+        return "bg-gray-100 text-gray-800";
     }
   };
 
@@ -161,26 +178,40 @@ function KYCReview() {
           <TableBody>
             {isLoading ? (
               <TableRow>
-                <TableCell colSpan={8} className="text-center">Loading...</TableCell>
+                <TableCell colSpan={8} className="text-center">
+                  Loading...
+                </TableCell>
               </TableRow>
             ) : (
               kycData?.data.map((kyc) => (
                 <TableRow key={kyc.id}>
-                  <TableCell>{kyc.user.first_name} {kyc.user.last_name}</TableCell>
+                  <TableCell>
+                    {kyc.user.first_name} {kyc.user.last_name}
+                  </TableCell>
                   <TableCell>{kyc.user.company_name}</TableCell>
                   <TableCell>{kyc.user.industry}</TableCell>
                   <TableCell>{kyc.user.email}</TableCell>
                   <TableCell>{kyc.user.tax_id}</TableCell>
                   <TableCell>{kyc.document_type}</TableCell>
                   <TableCell>
-                    <span className={`px-2 py-1 rounded-full text-xs ${getStatusColor(kyc.status)}`}>
+                    <span
+                      className={`px-2 py-1 rounded-full text-xs ${getStatusColor(
+                        kyc.status
+                      )}`}
+                    >
                       {kyc.status}
                     </span>
                   </TableCell>
                   <TableCell>
                     <Dialog open={openDialog} onOpenChange={setOpenDialog}>
                       <DialogTrigger asChild>
-                        <Button variant="outline" size="sm" className="bg-black text-white hover:bg-gray-700">View</Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="bg-black text-white hover:bg-gray-700"
+                        >
+                          View
+                        </Button>
                       </DialogTrigger>
                       <DialogContent className="sm:max-w-[425px]">
                         <DialogHeader>
@@ -199,8 +230,23 @@ function KYCReview() {
                           />
                         </div>
                         <DialogFooter>
-                          <Button variant="outline" onClick={() => handleApproveReject('REJECTED', kyc.id)} className="bg-red-500 text-white hover:bg-red-600">Reject</Button>
-                          <Button onClick={() => handleApproveReject('APPROVED', kyc.id)} className="bg-green-500 text-white hover:bg-green-600">Approve</Button>
+                          <Button
+                            variant="outline"
+                            onClick={() =>
+                              handleApproveReject("REJECTED", kyc.id)
+                            }
+                            className="bg-red-500 text-white hover:bg-red-600"
+                          >
+                            Reject
+                          </Button>
+                          <Button
+                            onClick={() =>
+                              handleApproveReject("APPROVED", kyc.id)
+                            }
+                            className="bg-green-500 text-white hover:bg-green-600"
+                          >
+                            Approve
+                          </Button>
                         </DialogFooter>
                       </DialogContent>
                     </Dialog>
@@ -214,22 +260,36 @@ function KYCReview() {
 
       <div className="mt-4 flex flex-col md:flex-row items-center justify-between gap-4">
         <p className="text-sm text-gray-500">
-          Showing {((filters.page ?? 1) - 1) * (filters.limit ?? 10) + 1} to {Math.min((filters.page ?? 1) * (filters.limit ?? 10), kycData?.metadata.total ?? 0)} of {kycData?.metadata.total ?? 0} entries
+          Showing {((filters.page ?? 1) - 1) * (filters.limit ?? 10) + 1} to{" "}
+          {Math.min(
+            (filters.page ?? 1) * (filters.limit ?? 10),
+            kycData?.metadata.total ?? 0
+          )}{" "}
+          of {kycData?.metadata.total ?? 0} entries
         </p>
         <Pagination>
           <PaginationContent>
             <PaginationItem>
               <PaginationPrevious
                 onClick={() => handlePageChange((filters.page ?? 1) - 1)}
-                className={(filters.page ?? 1) <= 1 ? 'pointer-events-none opacity-50' : ''}
+                className={
+                  (filters.page ?? 1) <= 1
+                    ? "pointer-events-none opacity-50"
+                    : ""
+                }
               />
             </PaginationItem>
-            {Array.from({ length: kycData?.metadata.totalPages ?? 0 }, (_, i) => i + 1)
-              .filter(page => {
+            {Array.from(
+              { length: kycData?.metadata.totalPages ?? 0 },
+              (_, i) => i + 1
+            )
+              .filter((page) => {
                 const currentPage = filters.page ?? 1;
-                return page === 1 ||
-                       page === (kycData?.metadata.totalPages ?? 0) ||
-                       (page >= currentPage - 1 && page <= currentPage + 1);
+                return (
+                  page === 1 ||
+                  page === (kycData?.metadata.totalPages ?? 0) ||
+                  (page >= currentPage - 1 && page <= currentPage + 1)
+                );
               })
               .map((page) => (
                 <PaginationItem key={page}>
@@ -244,7 +304,11 @@ function KYCReview() {
             <PaginationItem>
               <PaginationNext
                 onClick={() => handlePageChange((filters.page ?? 1) + 1)}
-                className={(filters.page ?? 1) >= (kycData?.metadata.totalPages ?? 0) ? 'pointer-events-none opacity-50' : ''}
+                className={
+                  (filters.page ?? 1) >= (kycData?.metadata.totalPages ?? 0)
+                    ? "pointer-events-none opacity-50"
+                    : ""
+                }
               />
             </PaginationItem>
           </PaginationContent>

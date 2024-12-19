@@ -13,32 +13,33 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-
-
-
 model User {
-  id                 String   @id @default(uuid())
-  first_name         String
-  last_name          String
-  phone_number       String
-  email              String   @unique
-  password           String
-  company_name       String
-  tax_id             String
-  industry           String
-  is_email_verified  Boolean  @default(false)
-  two_factor_enabled Boolean  @default(false)
-  created_at         DateTime @default(now())
-  updated_at         DateTime @updatedAt
-  deleted_at         DateTime?
-  kyc_documents      KYCDocument[]
-  invoices           Invoice[]
-  milestones         Milestone[]
-  funding_requests   FundingRequest[]
-  notifications      Notification[]
-  verification_tokens VerificationToken[]
-  kyc_status        KYCStatus @default(PENDING)
-  can_create_invoice Boolean  @default(false)
+  id                            String              @id @default(uuid())
+  first_name                    String
+  last_name                     String
+  phone_number                  String
+  email                         String              @unique
+  password                      String
+  company_name                  String
+  business_address              String?
+  business_ownership_percentage Int?
+  source_of_wealth              String?
+  business_description          String?
+  tax_id                        String
+  industry                      String
+  is_email_verified             Boolean             @default(false)
+  two_factor_enabled            Boolean             @default(false)
+  created_at                    DateTime            @default(now())
+  updated_at                    DateTime            @updatedAt
+  deleted_at                    DateTime?
+  kyc_documents                 KYCDocument[]
+  invoices                      Invoice[]
+  milestones                    Milestone[]
+  funding_requests              FundingRequest[]
+  notifications                 Notification[]
+  verification_tokens           VerificationToken[]
+  kyc_status                    KYCStatus           @default(PENDING)
+  can_create_invoice            Boolean             @default(false)
 }
 
 model Admin {
@@ -69,145 +70,142 @@ model Admin {
 }
 
 model KYCDocument {
-  id                 String   @id @default(uuid())
-  user_id            String
-  admin_id           String?
-  document_type      String
-  document_url       String
-  status             ApprovalStatus
-  deleted_at         DateTime?
-  submission_date    DateTime @default(now())
-  review_date        DateTime?
-  user               User     @relation(fields: [user_id], references: [id])
-  reviewed_by        Admin?   @relation(fields: [admin_id], references: [id])
-  file_name          String?
+  id              String         @id @default(uuid())
+  user_id         String
+  admin_id        String?
+  document_type   String
+  document_url    String
+  status          ApprovalStatus
+  deleted_at      DateTime?
+  submission_date DateTime       @default(now())
+  review_date     DateTime?
+  user            User           @relation(fields: [user_id], references: [id])
+  reviewed_by     Admin?         @relation(fields: [admin_id], references: [id])
+  file_name       String?
 
   @@unique(name: "user_document_type", fields: [user_id, document_type])
 }
 
 model Invoice {
-  id                 String   @id @default(uuid())
-  user_id            String
-  admin_id           String?
-  assigned_admin_id  String?
-  description        String?
-  quantity           Int
-  price_per_unit     Float
-  total_price        Float?
-  invoice_file       String?
-  invoice_number     String
-  payment_terms      String
-  due_date           DateTime
-  vendor_id          String
-  interest_rate      Float?
-  vendor             Vendor   @relation(fields: [vendor_id], references: [id])
-  status             ApprovalStatus @default(PENDING)
-  deleted_at         DateTime?
-  submission_date    DateTime @default(now())
-  review_date        DateTime?
-  user               User     @relation(fields: [user_id], references: [id])
-  reviewed_by        Admin?   @relation("ReviewedInvoices", fields: [admin_id], references: [id])
-  assigned_to        Admin?   @relation("AssignedInvoices", fields: [assigned_admin_id], references: [id])
-  assigned_by_id     String?
-  assigned_by        Admin?   @relation("AssignedInvoicesBy", fields: [assigned_by_id], references: [id])
-  milestones         Milestone[]
-  funding_requests   FundingRequest[]
+  id                String           @id @default(uuid())
+  user_id           String
+  admin_id          String?
+  assigned_admin_id String?
+  description       String?
+  quantity          Int
+  price_per_unit    Float
+  total_price       Float?
+  invoice_file      String?
+  invoice_number    String
+  payment_terms     String
+  due_date          DateTime
+  vendor_id         String
+  interest_rate     Float?
+  vendor            Vendor           @relation(fields: [vendor_id], references: [id])
+  status            ApprovalStatus   @default(PENDING)
+  deleted_at        DateTime?
+  submission_date   DateTime         @default(now())
+  review_date       DateTime?
+  user              User             @relation(fields: [user_id], references: [id])
+  reviewed_by       Admin?           @relation("ReviewedInvoices", fields: [admin_id], references: [id])
+  assigned_to       Admin?           @relation("AssignedInvoices", fields: [assigned_admin_id], references: [id])
+  assigned_by_id    String?
+  assigned_by       Admin?           @relation("AssignedInvoicesBy", fields: [assigned_by_id], references: [id])
+  milestones        Milestone[]
+  funding_requests  FundingRequest[]
 
   @@index([assigned_admin_id])
 }
 
 model Milestone {
-  id                 String   @id @default(uuid())
-  user_id            String
-  admin_id           String?
-  invoice_id         String
-  title              String
-  description        String?
-  supporting_doc     String?
-  bank_name          String
-  bank_account_no    String
-  due_date           DateTime
-  status             ApprovalStatus
-  payment_amount     Float
-  approved_at        DateTime?
-  paid_at            DateTime?
-  user               User     @relation(fields: [user_id], references: [id])
-  invoice            Invoice  @relation(fields: [invoice_id], references: [id])
-  created_at         DateTime @default(now())
-  reviewed_by        Admin?   @relation(fields: [admin_id], references: [id])
-  updated_at         DateTime @updatedAt
-  deleted_at         DateTime?
-  cosigned_by_id     String?
-  cosigned_by        Admin?   @relation("CosignedMilestones", fields: [cosigned_by_id], references: [id])
-  second_level_co_sign_id     String?
-  second_level_co_sign        Admin?   @relation("SecondLevelCoSignMilestones", fields: [second_level_co_sign_id], references: [id])
-  assigned_by_id     String?
-  assigned_by        Admin?   @relation("AssignedByMilestones", fields: [assigned_by_id], references: [id])
-  assigned_to_id     String?
-  assigned_to        Admin?   @relation("AssignedMilestones", fields: [assigned_to_id], references: [id])
-  payment_status     PaymentStatus @default(PENDING)
-  payment_approved   Boolean  @default(false)
-  payment_approved_at DateTime?
-  payment_approved_by_id String?
-  payment_approved_by Admin? @relation("ApprovedPayments", fields: [payment_approved_by_id], references: [id])
+  id                      String         @id @default(uuid())
+  user_id                 String
+  admin_id                String?
+  invoice_id              String
+  title                   String
+  description             String?
+  supporting_doc          String?
+  bank_name               String
+  bank_account_no         String
+  due_date                DateTime
+  status                  ApprovalStatus
+  payment_amount          Float
+  approved_at             DateTime?
+  paid_at                 DateTime?
+  user                    User           @relation(fields: [user_id], references: [id])
+  invoice                 Invoice        @relation(fields: [invoice_id], references: [id])
+  created_at              DateTime       @default(now())
+  reviewed_by             Admin?         @relation(fields: [admin_id], references: [id])
+  updated_at              DateTime       @updatedAt
+  deleted_at              DateTime?
+  cosigned_by_id          String?
+  cosigned_by             Admin?         @relation("CosignedMilestones", fields: [cosigned_by_id], references: [id])
+  second_level_co_sign_id String?
+  second_level_co_sign    Admin?         @relation("SecondLevelCoSignMilestones", fields: [second_level_co_sign_id], references: [id])
+  assigned_by_id          String?
+  assigned_by             Admin?         @relation("AssignedByMilestones", fields: [assigned_by_id], references: [id])
+  assigned_to_id          String?
+  assigned_to             Admin?         @relation("AssignedMilestones", fields: [assigned_to_id], references: [id])
+  payment_status          PaymentStatus  @default(PENDING)
+  payment_approved        Boolean        @default(false)
+  payment_approved_at     DateTime?
+  payment_approved_by_id  String?
+  payment_approved_by     Admin?         @relation("ApprovedPayments", fields: [payment_approved_by_id], references: [id])
 }
 
 
 
 
 model FundingRequest {
-  id                 String   @id @default(uuid())
-  user_id            String
-  admin_id           String?
-  invoice_id       String
-  requested_amount   Float
-  your_contribution  Float
-  status             ApprovalStatus
-  submission_date    DateTime @default(now())
-  review_date        DateTime?
-  deleted_at         DateTime?
-  user               User     @relation(fields: [user_id], references: [id])
-  reviewed_by        Admin?   @relation(fields: [admin_id], references: [id])
-  invoice          Invoice @relation(fields: [invoice_id], references: [id])
+  id                String         @id @default(uuid())
+  user_id           String
+  admin_id          String?
+  invoice_id        String
+  requested_amount  Float
+  your_contribution Float
+  status            ApprovalStatus
+  submission_date   DateTime       @default(now())
+  review_date       DateTime?
+  deleted_at        DateTime?
+  user              User           @relation(fields: [user_id], references: [id])
+  reviewed_by       Admin?         @relation(fields: [admin_id], references: [id])
+  invoice           Invoice        @relation(fields: [invoice_id], references: [id])
 }
 
 model Notification {
-  id                 String   @id @default(uuid())
-  message            String
-  link               String?
-  type               NotificationType
-  is_read            Boolean  @default(false)
-  created_at         DateTime @default(now())
-  deleted_at         DateTime?
-  user               User[]
-  admin              Admin[]
-  email_sent         Boolean  @default(false)
+  id         String           @id @default(uuid())
+  message    String
+  link       String?
+  type       NotificationType
+  is_read    Boolean          @default(false)
+  created_at DateTime         @default(now())
+  deleted_at DateTime?
+  user       User[]
+  admin      Admin[]
+  email_sent Boolean          @default(false)
 }
-
 
 model ActivityLog {
-  id        String   @id @default(uuid())
-  action    String
-  admin_id    String
-  type        NotificationType
-  link        String?
-  admin      Admin     @relation(fields: [admin_id], references: [id])
-  created_at DateTime @default(now())
-  deleted_at         DateTime?
+  id         String           @id @default(uuid())
+  action     String
+  admin_id   String
+  type       NotificationType
+  link       String?
+  admin      Admin            @relation(fields: [admin_id], references: [id])
+  created_at DateTime         @default(now())
+  deleted_at DateTime?
 }
 
-
 model Claim {
-  id                String      @id @default(uuid())
-  active            Boolean     @default(true)
-  type              String // Possible values: "ROLE", "PERMISSION"
-  user_id           String
-  permission_id     String?
-  role_name         String?
-  permission        Permission? @relation(fields: [permission_id], references: [id])
-  role              Role?       @relation(fields: [role_name], references: [name])
-  user              Admin        @relation(fields: [user_id], references: [id])
-
+  id            String      @id @default(uuid())
+  active        Boolean     @default(true)
+  type          String // Possible values: "ROLE", "PERMISSION"
+  user_id       String
+  permission_id String?
+  role_name     String?
+  permission    Permission? @relation(fields: [permission_id], references: [id])
+  role          Role?       @relation(fields: [role_name], references: [name])
+  user          Admin       @relation(fields: [user_id], references: [id])
 
   @@unique([user_id, role_name], name: "unique_claim_role")
   @@unique([user_id, permission_id], name: "unique_claim_permission")
@@ -216,25 +214,25 @@ model Claim {
 }
 
 model Permission {
-  id          String           @id @default(uuid())
-  name        String
-  active      Boolean          @default(true)
-  module      String
-  action      String
-  roles       PermissionRole[]
-  users       Claim[]
+  id     String           @id @default(uuid())
+  name   String
+  active Boolean          @default(true)
+  module String
+  action String
+  roles  PermissionRole[]
+  users  Claim[]
 
   @@unique(name: "unique_permission", [action, module])
   @@map(name: "permissions")
 }
 
 model Role {
-  name            String           @id
-  active          Boolean          @default(true)
-  built_in        Boolean          @default(false)
-  permissions     PermissionRole[]
-  users           Claim[]
-  deleted_at      DateTime?
+  name        String           @id
+  active      Boolean          @default(true)
+  built_in    Boolean          @default(false)
+  permissions PermissionRole[]
+  users       Claim[]
+  deleted_at  DateTime?
 
   @@map(name: "roles")
 }
@@ -250,10 +248,10 @@ model PermissionRole {
   @@unique([id, role_name], name: "unique_permission_role")
   @@map(name: "permission_role")
 }
+
 enum AdminRole {
   ADMIN
   SUPER_ADMIN
-
 }
 
 enum ApprovalStatus {
@@ -284,20 +282,20 @@ enum NotificationType {
 }
 
 model Vendor {
-  id                 String   @id @default(uuid())
-  name               String
-  contact_person     String
+  id                          String    @id @default(uuid())
+  name                        String
+  contact_person              String
   contact_person_phone_number String?
-  phone_number       String
-  address            String
-  email              String   @unique
-  bank_name          String?
-  bank_account_number String?
-  deleted_at         DateTime?
-  invoices           Invoice[]
-  created_by          String?
-  admin               Admin?  @relation(fields: [created_by], references: [id])
-  created_at         DateTime @default(now())
+  phone_number                String
+  address                     String
+  email                       String    @unique
+  bank_name                   String?
+  bank_account_number         String?
+  deleted_at                  DateTime?
+  invoices                    Invoice[]
+  created_by                  String?
+  admin                       Admin?    @relation(fields: [created_by], references: [id])
+  created_at                  DateTime  @default(now())
 }
 
 enum PaymentStatus {
@@ -308,22 +306,22 @@ enum PaymentStatus {
 }
 
 model EmailTemplate {
-  id          String   @id @default(uuid())
-  name        String   @unique
-  subject     String
-  body        String
-  created_at  DateTime @default(now())
-  updated_at  DateTime @updatedAt
+  id         String   @id @default(uuid())
+  name       String   @unique
+  subject    String
+  body       String
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
 }
 
 model VerificationToken {
-  id          String   @id @default(uuid())
-  token       String   @unique
-  user_id     String
-  user        User     @relation(fields: [user_id], references: [id])
-  expires     DateTime
-  created_at  DateTime @default(now())
-  updated_at  DateTime @updatedAt
+  id         String   @id @default(uuid())
+  token      String   @unique
+  user_id    String
+  user       User     @relation(fields: [user_id], references: [id])
+  expires    DateTime
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
 
   @@index([token])
 }
