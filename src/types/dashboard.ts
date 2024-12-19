@@ -1,4 +1,4 @@
-import { Admin, ActivityLog, Notification } from '@prisma/client'
+import { ActivityLog, Notification } from '@prisma/client'
 
 export interface DashboardSummary {
   admin: {
