@@ -42,6 +42,9 @@ import Image from "next/image"
 import { format, isBefore, isToday, startOfDay, endOfDay, startOfWeek, endOfWeek, startOfMonth, endOfMonth } from "date-fns"
 import { ApprovalStatus } from "@prisma/client"
 import Link from "next/link"
+import { Label } from "@/components/ui/label"
+import { Textarea } from "@/components/ui/textarea"
+import { usePermission } from "@/hooks/use-permission"
 
 type DueDateFilter = 'all' | 'overdue' | 'due-today' | 'due-this-week' | 'due-this-month';
 
@@ -77,6 +80,9 @@ function MilestoneReview() {
 
   const { data: milestoneData, isLoading, refetch } = trpc.getAllMilestones.useQuery(filters);
 
+  const { hasPermission } = usePermission();
+  const canProcessPayments = hasPermission('HANDLE_PAYMENTS_FOR_APPROVED_MILESTONES');
+
   const updateMilestoneStatus = trpc.updateMilestoneSatus.useMutation({
     onSuccess: () => {
       toast({
@@ -94,6 +100,21 @@ function MilestoneReview() {
     }
   });
 
+  const updatePaymentStatus = trpc.updateMilestonePaymentStatus.useMutation({
+    onSuccess: () => {
+      toast({
+        description: "Payment status updated successfully"
+      });
+      refetch();
+    },
+    onError: (error) => {
+      toast({
+        description: error.message || "Failed to update payment status",
+        variant: "destructive"
+      });
+    }
+  });
+
   const handlePageChange = (newPage: number) => {
     setFilters(prev => ({ ...prev, page: newPage }));
   };
@@ -104,7 +125,11 @@ function MilestoneReview() {
 
 
   const handleStatusFilter = (value: string) => {
-    setFilters(prev => ({ ...prev, status: value as ApprovalStatus, page: 1 }));
+    if (value === "all") {
+      setFilters(prev => ({ ...prev, status: undefined, page: 1 }));
+    } else {
+      setFilters(prev => ({ ...prev, status: value as ApprovalStatus, page: 1 }));
+    }
   };
 
   const handleSort = (value: string) => {
@@ -339,6 +364,59 @@ function MilestoneReview() {
                           Full Details
                         </Button>
                       </Link>
+                      
+                      {canProcessPayments && milestone.status === 'APPROVED' && 
+                       milestone.second_level_co_sign && 
+                       milestone.payment_status !== 'PAID' && (
+                        <Dialog>
+                          <DialogTrigger asChild>
+                            <Button variant="outline" size="sm">
+                              Process Payment
+                            </Button>
+                          </DialogTrigger>
+                          <DialogContent>
+                            <DialogHeader>
+                              <DialogTitle>Process Payment</DialogTitle>
+                              <DialogDescription>
+                                Update payment status for this milestone
+                              </DialogDescription>
+                            </DialogHeader>
+                            
+                            <form onSubmit={(e) => {
+                              e.preventDefault();
+                              const formData = new FormData(e.currentTarget);
+                              updatePaymentStatus.mutate({
+                                milestone_id: milestone.id,
+                                payment_status: 'PAID',
+                                payment_reference: formData.get('reference') as string,
+                                payment_date: new Date(),
+                                payment_method: formData.get('method') as string,
+                                payment_notes: formData.get('notes') as string,
+                              });
+                            }}>
+                              <div className="grid gap-4 py-4">
+                                <div className="grid gap-2">
+                                  <Label htmlFor="reference">Payment Reference</Label>
+                                  <Input id="reference" name="reference" required />
+                                </div>
+                                <div className="grid gap-2">
+                                  <Label htmlFor="method">Payment Method</Label>
+                                  <Input id="method" name="method" required />
+                                </div>
+                                <div className="grid gap-2">
+                                  <Label htmlFor="notes">Notes</Label>
+                                  <Textarea id="notes" name="notes" />
+                                </div>
+                              </div>
+                              <DialogFooter>
+                                <Button type="submit">
+                                  Mark as Paid
+                                </Button>
+                              </DialogFooter>
+                            </form>
+                          </DialogContent>
+                        </Dialog>
+                      )}
                     </div>
                   </TableCell>
                 </TableRow>

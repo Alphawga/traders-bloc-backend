@@ -12,6 +12,7 @@ import { createNotification, getNotificationType, getRelevantRoles } from '@/lib
 import { BLOCK_PERMISSIONS } from '@/lib/contants';
 import { createProcedure } from '../context';
 import { getUserPermissions } from '@/lib/permission-utils';
+import { endOfMonth, startOfMonth } from 'date-fns';
 
 
 const headOfCreditProc   = createProcedure(BLOCK_PERMISSIONS.ASSIGN_INVOICES_TO_CREDIT_OPS_LEADS);
@@ -21,6 +22,8 @@ const seeAllMilestonesProc = createProcedure(BLOCK_PERMISSIONS.VIEW_MILESTONES);
 const viewMilestoneProc = createProcedure(BLOCK_PERMISSIONS.VIEW_MILESTONES);
 const addNoteProc = createProcedure(BLOCK_PERMISSIONS.ADD_NOTES);
 const approveMilestoneProc = createProcedure(BLOCK_PERMISSIONS.APPROVE_OR_EDIT_MILESTONES);
+const viewFundingRequest =createProcedure(BLOCK_PERMISSIONS.VIEW_FUNDING_REQUESTS)
+const financeProc = createProcedure(BLOCK_PERMISSIONS.HANDLE_PAYMENTS_FOR_APPROVED_MILESTONES);
 
 export const getAllMilestones = seeAllMilestonesProc
   .input(
@@ -88,7 +91,7 @@ export const getAllMilestones = seeAllMilestonesProc
       ];
     }
 
-    if (status && status !== ("all") as ApprovalStatus) {
+    if (status) {
       where.status = status as ApprovalStatus;
     }
 
@@ -581,6 +584,193 @@ export const getAdminDashboardSummary = createProcedure()
         };
       }
 
+      if (admin.claims.some(c => c.role?.name === BLOCK_PERMISSIONS.FINANCE)) {
+        const [
+          totalPayable,
+          totalInvoiceValue,
+          dueThisMonth,
+          totalRevenue,
+          pendingPayments
+        ] = await Promise.all([
+          // Total payable amount (approved milestones awaiting payment)
+          prisma.milestone.aggregate({
+            where: {
+              status: 'APPROVED',
+              payment_status: 'PENDING',
+              second_level_co_sign_id: { not: null },
+              deleted_at: null,
+            },
+            _sum: {
+              payment_amount: true,
+            },
+          }),
+
+          // Total invoice value
+          prisma.invoice.aggregate({
+            where: {
+              deleted_at: null,
+            },
+            _sum: {
+              total_price: true,
+            },
+          }),
+
+          // Due this month
+          prisma.milestone.aggregate({
+            where: {
+              due_date: {
+                gte: startOfMonth(new Date()),
+                lte: endOfMonth(new Date()),
+              },
+              deleted_at: null,
+            },
+            _sum: {
+              payment_amount: true,
+            },
+            _count: true,
+          }),
+
+          // Total revenue (paid milestones)
+          prisma.milestone.aggregate({
+            where: {
+              payment_status: 'PAID',
+              deleted_at: null,
+            },
+            _sum: {
+              payment_amount: true,
+            },
+          }),
+
+          // Pending payments count
+          prisma.milestone.count({
+            where: {
+              status: 'APPROVED',
+              payment_status: 'PENDING',
+              second_level_co_sign_id: { not: null },
+              deleted_at: null,
+            },
+          }),
+        ]);
+
+        return {
+          admin,
+          totalPayableAmount: totalPayable._sum.payment_amount || 0,
+          totalInvoiceValue: totalInvoiceValue._sum.total_price || 0,
+          dueThisMonth: dueThisMonth._sum.payment_amount || 0,
+          dueThisMonthCount: dueThisMonth._count,
+          totalRevenue: totalRevenue._sum.payment_amount || 0,
+          pendingPaymentsCount: pendingPayments,
+          paymentProgress: totalRevenue._sum.payment_amount && totalInvoiceValue._sum.total_price
+            ? (totalRevenue._sum.payment_amount / totalInvoiceValue._sum.total_price) * 100
+            : 0,
+          recentActivity,
+          unreadNotifications,
+        };
+      }
+
+      if (admin.claims.some(c => c.role?.name === BLOCK_PERMISSIONS.COLLECTIONS)) {
+        const [
+          readyForCollectionData,
+          overdueData,
+          dueThisMonthData,
+          totalCollectedData,
+          penaltiesData
+        ] = await Promise.all([
+          // Ready for collection
+          prisma.invoice.aggregate({
+            where: {
+              status: 'FULLY_DELIVERED',
+              deleted_at: null,
+            },
+            _sum: {
+              total_price: true,
+            },
+            _count: true,
+          }),
+
+          // Overdue invoices
+          prisma.invoice.aggregate({
+            where: {
+              due_date: {
+                lt: new Date(),
+              },
+              status: { not: 'FULLY_DELIVERED' },
+              deleted_at: null,
+            },
+            _sum: {
+              total_price: true,
+            },
+            _count: true,
+          }),
+
+          // Due this month
+          prisma.invoice.aggregate({
+            where: {
+              due_date: {
+                gte: startOfMonth(new Date()),
+                lte: endOfMonth(new Date()),
+              },
+              status: { not: 'FULLY_DELIVERED' },
+              deleted_at: null,
+            },
+            _sum: {
+              total_price: true,
+            },
+            _count: true,
+          }),
+
+          // Total collected
+          prisma.invoice.aggregate({
+            where: {
+              status: 'FULLY_DELIVERED',
+              deleted_at: null,
+            },
+            _sum: {
+              total_price: true,
+            },
+          }),
+
+          // Calculate penalties (example calculation)
+          prisma.invoice.findMany({
+            where: {
+              due_date: {
+                lt: new Date(),
+              },
+              status: { not: 'FULLY_DELIVERED' },
+              deleted_at: null,
+            },
+            select: {
+              total_price: true,
+              due_date: true,
+            },
+          }),
+        ]);
+
+        // Calculate penalties (example: 1% per day overdue)
+        const totalPenalties = penaltiesData.reduce((acc, invoice) => {
+          const daysOverdue = Math.floor((Date.now() - invoice.due_date.getTime()) / (1000 * 60 * 60 * 24));
+          const penalty = (invoice.total_price || 0) * 0.01 * daysOverdue;
+          return acc + penalty;
+        }, 0);
+
+        return {
+          admin,
+          readyForCollection: readyForCollectionData._sum.total_price || 0,
+          readyForCollectionCount: readyForCollectionData._count,
+          overdueAmount: overdueData._sum.total_price || 0,
+          overdueCount: overdueData._count,
+          calculatedPenalties: totalPenalties,
+          dueThisMonth: dueThisMonthData._sum.total_price || 0,
+          dueThisMonthCount: dueThisMonthData._count,
+          totalCollected: totalCollectedData._sum.total_price || 0,
+          collectionProgress: totalCollectedData._sum.total_price && readyForCollectionData._sum.total_price
+            ? (totalCollectedData._sum.total_price / readyForCollectionData._sum.total_price) * 100
+            : 0,
+          recentActivity,
+          unreadNotifications,
+        };
+      }
+
       return {
         admin,
         pendingInvoices,
@@ -873,7 +1063,7 @@ export const getAllInvoices = createProcedure()
     };
   });
 
-  export const getAllFundingRequests = adminProcedure
+  export const getAllFundingRequests = viewFundingRequest
   .input(
     z.object({
       search: z.string().optional(),
@@ -1900,5 +2090,55 @@ export const addNote = addNoteProc
     }
 
     return note;
+  });
+
+export const updateMilestonePaymentStatus = financeProc
+  .input(z.object({
+    milestone_id: z.string(),
+    payment_status: z.nativeEnum(PaymentStatus),
+    payment_reference: z.string().optional(),
+    payment_date: z.date().optional(),
+    payment_method: z.string().optional(),
+    payment_notes: z.string().optional(),
+  }))
+  .mutation(async ({ input, ctx }) => {
+    const { milestone_id, payment_status, ...paymentDetails } = input;
+
+    // Verify milestone is approved and co-signed
+    const milestone = await prisma.milestone.findFirst({
+      where: {
+        id: milestone_id,
+        status: 'APPROVED',
+        second_level_co_sign_id: { not: null },
+      },
+    });
+
+    if (!milestone) {
+      throw new TRPCError({
+        code: 'BAD_REQUEST',
+        message: 'Milestone must be approved and co-signed before payment can be processed',
+      });
+    }
+
+    // Update milestone with payment status and details
+    const updatedMilestone = await prisma.milestone.update({
+      where: { id: milestone_id },
+      data: {
+        payment_status,
+        paid_at: payment_status === 'PAID' ? new Date() : null,
+        ...paymentDetails,
+      },
+    });
+
+    // Create notification
+    await createNotification(
+      `Milestone payment has been ${payment_status}`,
+      NotificationType.PAYMENT_APPROVED,
+      milestone_id,
+      milestone.user_id,
+      ctx.session
+    );
+
+    return updatedMilestone;
   });
 

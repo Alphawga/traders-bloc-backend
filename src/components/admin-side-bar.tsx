@@ -14,7 +14,8 @@ export function AdminSidebar({ className }: React.HTMLAttributes<HTMLDivElement>
   const hasAccessControl = hasPermission('VIEW_ACCESS_CONTROL')
   const hasCreditOpsLead = hasPermission('CREDIT_OPS_LEAD')
   const hasHeadOfCredit = hasPermission('HEAD_OF_CREDIT')
-  const hasInvoices =  hasCreditOpsLead || hasHeadOfCredit
+  const hasFinance = hasPermission('FINANCE')
+  const hasInvoices =  hasCreditOpsLead || hasHeadOfCredit || hasFinance
   const hasMilestones = hasPermission('VIEW_MILESTONES')
 
   return (

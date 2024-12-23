@@ -8,12 +8,19 @@ import Image from "next/image";
 import { useToast } from "@/hooks/use-toast";
 import { EntityNotes } from '@/components/admin/EntityNotes'
 import { Card } from "@/components/ui/card"
+import { usePermission } from "@/hooks/use-permission";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 
 export default function MilestoneDetails() {
   const params = useParams();
   const router = useRouter();
   const { toast } = useToast();
   const id = params.id as string;
+  const { hasPermission } = usePermission();
+  const canProcessPayments = hasPermission('HANDLE_PAYMENTS_FOR_APPROVED_MILESTONES');
 
   const { data: milestone, refetch } = trpc.getMilestone.useQuery({ id });
 
@@ -27,6 +34,21 @@ export default function MilestoneDetails() {
     onError: () => {
       toast({
         description: "Failed to update Milestone status",
+        variant: "destructive"
+      });
+    }
+  });
+
+  const updatePaymentStatus = trpc.updateMilestonePaymentStatus.useMutation({
+    onSuccess: () => {
+      toast({
+        description: "Payment status updated successfully"
+      });
+      refetch();
+    },
+    onError: (error) => {
+      toast({
+        description: error.message || "Failed to update payment status",
         variant: "destructive"
       });
     }
@@ -113,6 +135,59 @@ export default function MilestoneDetails() {
                 Approve
               </Button>
             </div>
+          )}
+
+          {canProcessPayments && milestone.status === 'APPROVED' && 
+           milestone.second_level_co_sign && 
+           milestone.payment_status !== 'PAID' && (
+            <Dialog>
+              <DialogTrigger asChild>
+                <Button className="bg-green-500 text-white hover:bg-green-600">
+                  Process Payment
+                </Button>
+              </DialogTrigger>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Process Payment</DialogTitle>
+                  <DialogDescription>
+                    Update payment status for this milestone
+                  </DialogDescription>
+                </DialogHeader>
+                
+                <form onSubmit={(e) => {
+                  e.preventDefault();
+                  const formData = new FormData(e.currentTarget);
+                  updatePaymentStatus.mutate({
+                    milestone_id: milestone.id,
+                    payment_status: 'PAID',
+                    payment_reference: formData.get('reference') as string,
+                    payment_date: new Date(),
+                    payment_method: formData.get('method') as string,
+                    payment_notes: formData.get('notes') as string,
+                  });
+                }}>
+                  <div className="grid gap-4 py-4">
+                    <div className="grid gap-2">
+                      <Label htmlFor="reference">Payment Reference</Label>
+                      <Input id="reference" name="reference" required />
+                    </div>
+                    <div className="grid gap-2">
+                      <Label htmlFor="method">Payment Method</Label>
+                      <Input id="method" name="method" required />
+                    </div>
+                    <div className="grid gap-2">
+                      <Label htmlFor="notes">Notes</Label>
+                      <Textarea id="notes" name="notes" />
+                    </div>
+                  </div>
+                  <DialogFooter>
+                    <Button type="submit">
+                      Mark as Paid
+                    </Button>
+                  </DialogFooter>
+                </form>
+              </DialogContent>
+            </Dialog>
           )}
         </Card>
 

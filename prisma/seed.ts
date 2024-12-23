@@ -56,10 +56,12 @@ const roles = {
     name: BLOCK_PERMISSIONS.FINANCE,
     permissions: [
       { module: "user", action: BLOCK_PERMISSIONS.FINANCE },
+      { module: "milestone", action: BLOCK_PERMISSIONS.VIEW_MILESTONES},
       { module: "payment", action: BLOCK_PERMISSIONS.HANDLE_PAYMENTS_FOR_APPROVED_MILESTONES },
       { module: "finance", action: BLOCK_PERMISSIONS.FORECAST_FINANCIAL_NEEDS },
       { module: "finance", action: BLOCK_PERMISSIONS.TRACK_TOTAL_PAYABLE_AMOUNTS },
       { module: "milestone", action: BLOCK_PERMISSIONS.ADD_NOTES },
+      {module: "funding-request", action: BLOCK_PERMISSIONS.VIEW_FUNDING_REQUESTS}
     ]
   },
   COLLECTIONS: {
@@ -229,7 +231,7 @@ async function seedVendors() {
       address: "789 Industrial Blvd, Chicago, IL 60601",
       email: "contact@manufacturingpro.com",
       bank_name: "Wells Fargo",
-      bank_account_number: "5432167890",
+      bank_account_number: "5432167890", 
     },
     {
       name: "Digital Services Co",

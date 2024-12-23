@@ -7,6 +7,9 @@ import { usePermission } from "@/hooks/use-permission"
 import { CreditOpsAnalystDashboard } from '@/components/admin/dashboards/CreditOpsAnalystDashboard'
 import { CreditOpsLeadDashboard } from '@/components/admin/dashboards/CreditOpsLeadDashboard'
 import { HeadOfCreditDashboard } from '@/components/admin/dashboards/HeadOfCreditDashboard'
+import { DashboardSummary } from '@/types/dashboard'
+import { FinanceDashboard } from '@/components/admin/dashboards/FinanceDashboard'
+import { CollectionsDashboard } from '@/components/admin/dashboards/CollectionsDashboard'
 
 
 export default function AdminDashboard() {
@@ -17,6 +20,8 @@ export default function AdminDashboard() {
   const isCreditOpsAnalyst = hasPermission('CREDIT_OPS_ANALYST')
   const isCreditOpsLead = hasPermission('CREDIT_OPS_LEAD')
   const isHeadOfCredit = hasPermission('HEAD_OF_CREDIT')
+  const isFinance = hasPermission('FINANCE')
+  const isCollections = hasPermission('COLLECTIONS')
 
   useEffect(() => {
     const hour = new Date().getHours()
@@ -54,9 +59,11 @@ export default function AdminDashboard() {
         />
       </div>
 
-      {isCreditOpsAnalyst && <CreditOpsAnalystDashboard dashboardSummary={dashboardSummary} />}
-      {isCreditOpsLead && <CreditOpsLeadDashboard dashboardSummary={dashboardSummary} />}
-      {isHeadOfCredit && <HeadOfCreditDashboard dashboardSummary={dashboardSummary} />}
+      {isCreditOpsAnalyst && <CreditOpsAnalystDashboard dashboardSummary={dashboardSummary as DashboardSummary} />}
+      {isCreditOpsLead && <CreditOpsLeadDashboard dashboardSummary={dashboardSummary as DashboardSummary} />}
+      {isHeadOfCredit && <HeadOfCreditDashboard dashboardSummary={dashboardSummary as DashboardSummary} />}
+      {isFinance && <FinanceDashboard dashboardSummary={dashboardSummary as DashboardSummary} />}
+      {isCollections && <CollectionsDashboard dashboardSummary={dashboardSummary as DashboardSummary} />}
     </div>
   )
 }
