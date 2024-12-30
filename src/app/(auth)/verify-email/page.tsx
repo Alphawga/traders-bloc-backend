@@ -21,8 +21,11 @@ function VerifyEmailContent() {
         title: "Email verified successfully",
         description: "You can now access all features"
       })
+      
+      trpc.useUtils().getUserData.invalidate();
       // Redirect after 3 seconds
-      setTimeout(() => router.push('/dashboard'), 3000)
+       router.push('/login')
+
     },
     onError: (error) => {
       setVerificationStatus('error')
@@ -41,7 +44,7 @@ function VerifyEmailContent() {
     } else {
       setVerificationStatus('error')
     }
-  }, [searchParams, verifyEmail])
+  }, [searchParams])
 
   return (
     <div className="container max-w-md mx-auto mt-20">

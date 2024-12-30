@@ -6,7 +6,7 @@ import bcrypt from 'bcrypt';
 import { fundingRequestSchema, invoiceSchema, milestoneSchema, userRegistrationSchema, userUpdateSchema } from '@/lib/dtos';
 import { v2 as cloudinary } from "cloudinary";
 import { NotificationType, Prisma } from '@prisma/client';
-import { createNotification, sendWelcomeEmail, verifyEmail } from '@/lib/helper-function';
+import { createNotification, sendWelcomeEmail, verifyEmail, notifyAdminsWithPermission } from '@/lib/helper-function';
 
 
 
@@ -58,6 +58,9 @@ export const registerUser = publicProcedure
       // Send welcome email and create notifications
       await sendWelcomeEmail(newUser);
 
+      // Notify admins
+      await notifyAdminsWithPermission('USER_REGISTRATION', newUser);
+
       return {
         success: true,
         message: 'Registration successful. Please check your email to verify your account.',
@@ -108,6 +111,33 @@ export const upsertKYCDocument = publicProcedure
           })
         )
       );
+
+      // Get user details
+      const user = await prisma.user.findUnique({
+        where: { id: userId },
+      });
+
+      if (!user) {
+        throw new TRPCError({
+          code: 'NOT_FOUND',
+          message: 'User not found',
+        });
+      }
+
+      // Notify admins with properly typed details
+      await notifyAdminsWithPermission('KYC_SUBMISSION', user, {
+        documents: input.map(doc => ({
+          type: doc.document_type,
+          status: doc.status
+        })),
+        company_details: {
+          company_name: user.company_name,
+          business_address: user.business_address ?? undefined,
+          business_description: user.business_description ?? undefined,
+          business_ownership_percentage: user.business_ownership_percentage ?? undefined,
+          source_of_wealth: user.source_of_wealth ?? undefined
+        }
+      });
 
       return result;
     } catch (error) {
@@ -742,16 +772,17 @@ export const verifyEmailToken = publicProcedure
   }))
   .mutation(async ({ input }) => {
     try {
-      await verifyEmail(input.token);
+     const user = await verifyEmail(input.token);
+      if (user) {
+        // Notify admins
+        await notifyAdminsWithPermission('EMAIL_VERIFICATION', user);
+      }
       return {
-        success: true,
+        user,
         message: 'Email verified successfully',
       };
     } catch (error) {
-      throw new TRPCError({
-        code: 'BAD_REQUEST',
-        message: error instanceof Error ? error.message : 'Failed to verify email',
-      });
+      console.error('Error verifying email:', error);
     }
   });
 

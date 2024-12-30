@@ -24,6 +24,7 @@ const addNoteProc = createProcedure(BLOCK_PERMISSIONS.ADD_NOTES);
 const approveMilestoneProc = createProcedure(BLOCK_PERMISSIONS.APPROVE_OR_EDIT_MILESTONES);
 const viewFundingRequest =createProcedure(BLOCK_PERMISSIONS.VIEW_FUNDING_REQUESTS)
 const financeProc = createProcedure(BLOCK_PERMISSIONS.HANDLE_PAYMENTS_FOR_APPROVED_MILESTONES);
+const reviewKYCProc = createProcedure(BLOCK_PERMISSIONS.REVIEW_KYC_SUBMISSIONS);
 
 export const getAllMilestones = seeAllMilestonesProc
   .input(
@@ -340,7 +341,7 @@ export const updateMilestoneSatus = approveMilestoneProc
     return milestone;
   });
 
-  export const getAllKYCDocuments = adminProcedure
+  export const getAllKYCDocuments = reviewKYCProc
   .input(z.object({
     search: z.string().optional(),
     status: z.nativeEnum(ApprovalStatus).optional(),
@@ -789,7 +790,7 @@ export const getAdminDashboardSummary = createProcedure()
     }
   });
 
-export const updateKYCDocument = adminProcedure
+export const updateKYCDocument = reviewKYCProc
   .input(kycUpdateSchema)
   .mutation(async ({ input, ctx }) => {
     const { status, kyc_id } = input;
@@ -804,8 +805,27 @@ export const updateKYCDocument = adminProcedure
         },
       },
     });
+
+    const user = await prisma.user.findUnique({
+      where: { id: kycDocument.user_id },
+      select: {
+       kyc_documents: true
+      }
+    });
+
+    const kycStatus = user?.kyc_documents.map(doc => doc.status === 'APPROVED').some(Boolean) ? 'APPROVED' : 'REJECTED';
+
+    if(kycStatus === 'APPROVED'){
+      await prisma.user.update({
+        where: { id: kycDocument.user_id },
+        data: {
+          kyc_status: 'APPROVED'
+        }
+      })
+
+    }
     await createNotification(
-      `KYC document has been ${status}`,
+      `Your ${kycDocument.document_type} KYC document has been ${status}`,
       NotificationType.KYC_STATUS_UPDATE,
       `${kyc_id}`,
       kycDocument.user_id,

@@ -39,4 +39,7 @@ export const BLOCK_PERMISSIONS = {
     VIEW_FUNDING_REQUESTS: "view_funding_requests",
     FINANCE_ROLE: "FINANCE_ROLE",
     ADD_NOTES: "add_notes",
+    VIEW_USER_DETAILS: 'view_user_details',
+    MANAGE_USER_VERIFICATION: 'manage_user_verification',
+    REVIEW_KYC_SUBMISSIONS: 'review_kyc_submissions',
 };

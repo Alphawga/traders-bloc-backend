@@ -4,7 +4,7 @@ import { usePathname } from 'next/navigation'
 import Link from 'next/link'
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
-import { HomeIcon, FileTextIcon, BarChartIcon, UserIcon, LogOutIcon } from 'lucide-react'
+import { HomeIcon, FileTextIcon, BarChartIcon, UserIcon, LogOutIcon, ShieldCheck } from 'lucide-react'
 import { signOut } from 'next-auth/react'
 
 export function Sidebar({ className }: React.HTMLAttributes<HTMLDivElement>) {
@@ -36,6 +36,12 @@ export function Sidebar({ className }: React.HTMLAttributes<HTMLDivElement>) {
               <Link href="/reports">
                 <BarChartIcon className="mr-2 h-4 w-4" />
                 Reports 
+              </Link>
+            </Button>
+            <Button variant={pathname === '/kyc' ? 'secondary' : 'ghost'} className="w-full justify-start" asChild>
+              <Link href="/kyc">
+                <ShieldCheck className="mr-2 h-4 w-4" />
+                KYC 
               </Link>
             </Button>
           </div>

@@ -39,15 +39,41 @@ interface TestEmailData extends BaseEmailData {
   testMessage: string;
 }
 
+// Add new email template types
+interface AdminNotificationData extends BaseEmailData {
+  userEmail: string;
+  userName: string;
+  action: 'USER_REGISTRATION' | 'EMAIL_VERIFICATION' | 'KYC_SUBMISSION';
+  userDetails?: {
+    documents?: Array<{
+      type: string;
+      status: 'PENDING' | 'APPROVED' | 'REJECTED' | 'NOT_SUBMITTED';
+    }>;
+    company_details?: {
+      company_name?: string;
+      business_address?: string;
+      business_description?: string;
+      business_ownership_percentage?: number;
+      source_of_wealth?: string;
+    };
+    verification_status?: boolean;
+    registration_details?: {
+      industry?: string;
+      tax_id?: string;
+    };
+  };
+}
+
 // Map template names to their data types
 export type EmailTemplateDataMap = {
-  'collection-assignment': CollectionAssignmentData;
-  'kyc-update': KYCUpdateData;
-  'invoice-update': InvoiceUpdateData;
-  'welcome-email': WelcomeEmailData;
-  'test-email': TestEmailData;
-  'password-reset': WelcomeEmailData;
-  'email-verification': WelcomeEmailData;
+  'COLLECTION_ASSIGNMENT': CollectionAssignmentData;
+  'KYC_UPDATE': KYCUpdateData;
+  'INVOICE_UPDATE': InvoiceUpdateData;
+  'WELCOME_EMAIL': WelcomeEmailData;
+  'TEST_EMAIL': TestEmailData;
+  'PASSWORD_RESET': WelcomeEmailData;
+  'EMAIL_VERIFICATION': WelcomeEmailData;
+  'admin-notification': AdminNotificationData;
 };
 
 interface SendEmailProps<T extends keyof EmailTemplateDataMap> {

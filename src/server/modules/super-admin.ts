@@ -334,7 +334,7 @@ export const completeInvoiceAndNotifyCollections = headOfCreditProc
       await sendEmail({
         to: collector.email,
         subject: `New Collection Assignment - Invoice #${invoice.invoice_number}`,
-        templateName: 'collection-assignment',
+        templateName: 'COLLECTION_ASSIGNMENT',
         data: {
           recipientName: collector.name,
           invoiceNumber: invoice.invoice_number,

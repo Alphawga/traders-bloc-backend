@@ -298,8 +298,8 @@ export default function SignupPage() {
                 </FormItem>
               )}
             />
-            <Button type="submit" className="w-full">
-              Create Account
+            <Button type="submit" className="w-full" disabled={addUser.isLoading}>
+              {addUser.isLoading ? 'Creating Account...' : 'Create Account'}
             </Button>
           </form>
         </Form>

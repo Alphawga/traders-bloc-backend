@@ -25,6 +25,7 @@ const roles = {
       { module: "access_control", action: BLOCK_PERMISSIONS.VIEW_ADMIN_LIST },
       { module: "access_control", action: BLOCK_PERMISSIONS.MANAGE_USER_STATUS },
       { module: "access_control", action: BLOCK_PERMISSIONS.OVERSEE_CREDIT_OPERATIONS_PIPELINE },
+      { module: "admin", action: BLOCK_PERMISSIONS.REVIEW_KYC_SUBMISSIONS },
     ]
   },
   CREDIT_OPS_LEAD: {
@@ -312,6 +313,25 @@ async function seedEmailTemplates() {
         <p>If you didn't request this verification, please ignore this email.</p>
       `
     },
+    {
+      name: 'admin-notification',
+      subject: 'User Action Notification',
+      body: `
+        <h1>Hello {{recipientName}},</h1>
+        <p>A user has performed an important action:</p>
+        <div style="margin: 20px 0; padding: 15px; border: 1px solid #ddd; border-radius: 5px;">
+          <p><strong>Action:</strong> {{action}}</p>
+          <p><strong>User:</strong> {{userName}} ({{userEmail}})</p>
+          {{#if userDetails}}
+          <div style="margin-top: 10px;">
+            <p><strong>Additional Details:</strong></p>
+            <pre>{{userDetails}}</pre>
+          </div>
+          {{/if}}
+        </div>
+        <p>Click <a href="{{link}}">here</a> to view user details.</p>
+      `
+    }
   ];
 
   for (const template of templates) {
