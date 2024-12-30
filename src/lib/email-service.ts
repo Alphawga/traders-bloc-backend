@@ -35,6 +35,11 @@ interface WelcomeEmailData extends BaseEmailData {
   role: string;
 }
 
+interface KYCApprovedData extends BaseEmailData {
+  status: string;
+  comments?: string;
+}
+
 interface TestEmailData extends BaseEmailData {
   testMessage: string;
 }
@@ -73,7 +78,8 @@ export type EmailTemplateDataMap = {
   'TEST_EMAIL': TestEmailData;
   'PASSWORD_RESET': WelcomeEmailData;
   'EMAIL_VERIFICATION': WelcomeEmailData;
-  'admin-notification': AdminNotificationData;
+  'KYC_APPROVED': KYCApprovedData;
+  'ADMIN_NOTIFICATION': AdminNotificationData;
 };
 
 interface SendEmailProps<T extends keyof EmailTemplateDataMap> {

@@ -314,7 +314,7 @@ async function seedEmailTemplates() {
       `
     },
     {
-      name: 'admin-notification',
+      name: 'ADMIN_NOTIFICATION',
       subject: 'User Action Notification',
       body: `
         <h1>Hello {{recipientName}},</h1>
@@ -330,6 +330,14 @@ async function seedEmailTemplates() {
           {{/if}}
         </div>
         <p>Click <a href="{{link}}">here</a> to view user details.</p>
+      `
+    },
+    {
+      name: 'KYC_APPROVED',
+      subject: 'KYC Approved',
+      body: `
+        <h1>Hello {{recipientName}},</h1>
+        <p>Your KYC documents have been approved.</p>
       `
     }
   ];

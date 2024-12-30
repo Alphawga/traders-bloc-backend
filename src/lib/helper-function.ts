@@ -108,6 +108,19 @@ export async function sendWelcomeEmail(user: {
   );
 }
 
+export async function sendKYCApprovedEmail(user_id: string, user: User): Promise<void> {
+  await sendEmail({
+    to: user.email,
+    subject: 'KYC Approved',
+    templateName: 'KYC_APPROVED',
+    data: {
+      recipientName: `${user.first_name} ${user.last_name}`,
+      status: 'APPROVED',
+      link: '/dashboard'
+    }
+  } as const);
+}
+
 // Add admin welcome email function
 export async function sendAdminWelcomeEmail(admin: { 
   email: string; 
@@ -350,7 +363,7 @@ export async function notifyAdminsWithPermission(
     await sendEmail({
       to: admin.email,
       subject: `User Action: ${action}`,
-      templateName: 'admin-notification',
+      templateName: 'ADMIN_NOTIFICATION',
       data: {
         recipientName: admin.name,
         userEmail: user.email,

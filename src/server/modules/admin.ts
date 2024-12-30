@@ -5,10 +5,10 @@ import { kycUpdateSchema } from '@/lib/dtos';
 import prisma from '@/lib/prisma';
 import { milestoneUpdateSchema } from '@/lib/dtos';
 import { z } from 'zod';
-import { ApprovalStatus, NotificationType, PaymentStatus, Prisma } from '@prisma/client';
+import { ApprovalStatus, NotificationType, PaymentStatus, Prisma, User } from '@prisma/client';
 import { TRPCError } from '@trpc/server';
 import bcrypt from 'bcrypt'
-import { createNotification, getNotificationType, getRelevantRoles } from '@/lib/helper-function';
+import { createNotification, getNotificationType, getRelevantRoles, sendKYCApprovedEmail } from '@/lib/helper-function';
 import { BLOCK_PERMISSIONS } from '@/lib/contants';
 import { createProcedure } from '../context';
 import { getUserPermissions } from '@/lib/permission-utils';
@@ -808,7 +808,7 @@ export const updateKYCDocument = reviewKYCProc
 
     const user = await prisma.user.findUnique({
       where: { id: kycDocument.user_id },
-      select: {
+      include: {
        kyc_documents: true
       }
     });
@@ -816,6 +816,8 @@ export const updateKYCDocument = reviewKYCProc
     const kycStatus = user?.kyc_documents.map(doc => doc.status === 'APPROVED').some(Boolean) ? 'APPROVED' : 'REJECTED';
 
     if(kycStatus === 'APPROVED'){
+
+      await sendKYCApprovedEmail(kycDocument.user_id, user as unknown as User);
       await prisma.user.update({
         where: { id: kycDocument.user_id },
         data: {
